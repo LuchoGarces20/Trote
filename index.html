@@ -284,10 +284,19 @@
         </div>
         
         <div class="card" style="margin-top: 20px;">
+            <h2>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                Previsão de Prova (Modelo Riegel)
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 16px;">Estimativa de tempo potencial em condições ideais de clima e altimetria.</p>
+            <div id="ui-race-predictor" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;"></div>
+        </div>
+
+         <div class="card" style="margin-top: 20px;">
             <h2>Processamento AI (Logs)</h2>
             <div id="feed-relatorios" style="padding-top: 10px;"></div>
         </div>
-        
+
         <button class="btn-reset-safe" onclick="resetarApp()">Zerar Motor (Resetar Dados)</button>
     </div>
 </div>
@@ -349,16 +358,16 @@
             </div>
             
             <div class="form-group full-width" style="margin-top: 8px;">
-                <label for="input-rpe">Percepção de Esforço (sRPE 1-10)</label>
-                <select id="input-rpe" style="padding: 14px;">
-                    <option value="2">2 - Muito Leve</option>
-                    <option value="4">4 - Leve</option>
-                    <option value="6" selected>6 - Moderado</option>
-                    <option value="8">8 - Difícil</option>
-                    <option value="9">9 - Muito Difícil</option>
-                    <option value="10">10 - Esforço Máx</option>
-                </select>
-            </div>
+    <label for="input-rpe">Percepção de Esforço (sRPE 1-10)</label>
+    <select id="input-rpe" style="padding: 14px;">
+        <option value="2">2 - Muito Leve (Consigo conversar sem pausar)</option>
+        <option value="4">4 - Leve / Confortável (Ritmo de rodagem Z2)</option>
+        <option value="6" selected>6 - Moderado (Cansaço controlado)</option>
+        <option value="8">8 - Difícil (Limiar / Exige concentração constante)</option>
+        <option value="9">9 - Muito Difícil (Tiros / Falta de ar pronunciada)</option>
+        <option value="10">10 - Esforço Máximo (Exaustão total ao concluir)</option>
+    </select>
+</div>
             
             <div class="form-group full-width" style="margin-top: 24px;">
                 <button type="submit" class="btn-giant">Salvar Sessão</button>

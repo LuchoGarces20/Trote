@@ -217,6 +217,22 @@ class RunningCoach {
         return parseFloat(desacoplamento.toFixed(1));
     }
 
+    calcularFatorDeriva(tempoMin, ifFactor) {
+        const ctlAtual = this.state.atleta.ctl || 15;
+        
+        // Limiar de início da deriva escala com o Fitness Crônico (CTL)
+        const tLimiar = Math.min(120, 45 + Math.round(ctlAtual * 1.0));
+        
+        if (tempoMin <= tLimiar) return 1.0;
+        
+        const minutosExcedentes = tempoMin - tLimiar;
+        const amortecimentoCtl = 1 + (0.01 * ctlAtual);
+        const taxaDeriva = (Math.pow(ifFactor, 2) / amortecimentoCtl) * 0.12;
+        
+        const fatorAdicional = (minutosExcedentes / 60) * taxaDeriva;
+        return parseFloat((1.0 + Math.min(0.25, fatorAdicional)).toFixed(3));
+    }
+
     // 3. RECURSO: Simulador de Previsão de Prova (Race Predictor)
     calcularPrevisoesRiegel() {
         if (!this.state || !this.state.atleta) return null;
@@ -625,14 +641,17 @@ class RunningCoach {
             logMsg += `Nova FC Máx (${fcMedia}). `;
         }
         
-        if (!isNaN(fcMedia) && fcMedia > 0) {
+        // 1. Declaração do ifFactor com escopo geral do método
+        let ifFactor = 0.75;
+        const fcNum = parseInt(fcMedia) || 0;
+
+        if (!isNaN(fcNum) && fcNum > 0) {
             const hrr = this.state.atleta.fcMax - this.state.atleta.fcRepouso;
-            const hrRatio = Math.max(0.1, Math.min(1, (fcMedia - this.state.atleta.fcRepouso) / hrr));
-            const ifFactor = hrRatio / 0.85; 
+            const hrRatio = Math.max(0.1, Math.min(1, (fcNum - this.state.atleta.fcRepouso) / hrr));
+            ifFactor = hrRatio / 0.85; 
             tss = (tempoMin / 60) * Math.pow(ifFactor, 2) * 100;
         } else {
             const safeRpe = isNaN(rpe) ? 6 : rpe; 
-            let ifFactor;
             if (safeRpe <= 4) {
                 ifFactor = Math.pow(safeRpe / 10, 1.5);
             } else {
@@ -641,19 +660,18 @@ class RunningCoach {
             tss = (tempoMin / 60) * Math.pow(ifFactor, 2) * 100;
         }
         
-        tss = Math.round(tss);
+        // 2. Aplica o Fator de Deriva Cardíaca Dinâmico
+        const fatorDeriva = this.calcularFatorDeriva(tempoMin, ifFactor);
+        tss = Math.round(tss * fatorDeriva);
         logMsg += `Carga: ${tss} TSS.`;
-
-        // Lógica de Decoupling (se houvesse campos na UI)
-        // const fcMetade1 = document.getElementById('input-fc-metade1').value; ...
-        // Como a UI ainda não tem esses campos, deixamos a chamada pronta aqui:
-        // if (treino.tipo.includes("Longão") && fcMetade1 && fcMetade2) { ... }
         
+        // 3. Salva a fcMedia no registro para a análise de feedback da IA
         this.state.treinosRealizados.push({ 
             idReferencia: treino.id, 
             dataISO: treino.dataISO, 
             tss: tss, 
             dist: distReal,
+            fcMedia: fcNum,
             tenisId: tenisId,
             rpeReal: parseInt(rpe) || 6
         });

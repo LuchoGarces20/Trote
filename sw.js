@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trote-pwa-v1';
+const CACHE_NAME = 'trote-pwa-v2';
 
 // Recursos essenciais para cache offline
 const STATIC_ASSETS = [

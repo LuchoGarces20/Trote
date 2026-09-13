@@ -211,9 +211,30 @@ h2 { font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700; ma
 .btn-reset-safe:hover { background: rgba(255, 59, 48, 0.1); }
 
 /* === WIZARD DE ONBOARDING (REFINADO iOS) === */
-.wizard-step { display: none; animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-.wizard-step.active { display: block; }
-@keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.wizard-step { 
+    display: none; 
+}
+
+.wizard-step.active { 
+    display: block; 
+}
+.wizard-step.slide-forward {
+    animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wizard-step.slide-backward {
+    animation: slideInLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(35px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-35px); }
+    to { opacity: 1; transform: translateX(0); }
+}
 
 .wizard-progress { display: flex; gap: 10px; margin-bottom: 32px; justify-content: center; }
 .progress-dot { height: 8px; width: 15%; background: var(--border-subtle); border-radius: var(--radius-pill); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -437,3 +458,156 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 10px; cu
     font-size: 1.2rem; 
     font-weight: 700; 
 }
+
+/* ==========================================
+   MELHORIAS DE UI & GLASSMORPHISM (TROTE)
+   ========================================== */
+
+/* Glassmorphism Moderno em Navegação e Modais */
+.nav-tabs, .modal-content, .header-bar {
+    background: rgba(18, 18, 20, 0.75) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Feedback Tátil & Animações Smooth */
+button, .tab-btn, .day-card, .shoe-card {
+    transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+}
+
+button:active, .tab-btn:active, .day-card:active {
+    transform: scale(0.97) !important;
+}
+
+/* Card Principal (Hero Card Dinâmico) */
+.today-card {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    border-radius: var(--radius-lg, 20px);
+    padding: 24px;
+}
+
+/* Temas de Intensidade */
+.today-card[data-intensity="z1-z2"] {
+    border: 1px solid rgba(16, 185, 129, 0.4) !important;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(14, 165, 233, 0.05) 100%) !important;
+    box-shadow: 0 12px 36px rgba(16, 185, 129, 0.12) !important;
+}
+
+.today-card[data-intensity="z3-z4"] {
+    border: 1px solid rgba(245, 158, 11, 0.5) !important;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.14) 0%, rgba(239, 68, 68, 0.06) 100%) !important;
+    box-shadow: 0 12px 36px rgba(245, 158, 11, 0.15) !important;
+}
+
+.today-card[data-intensity="z5-tiros"] {
+    border: 1px solid rgba(239, 68, 68, 0.6) !important;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.18) 0%, rgba(168, 85, 247, 0.1) 100%) !important;
+    box-shadow: 0 12px 36px rgba(239, 68, 68, 0.22) !important;
+}
+
+/* Time Trial / Dia de Validação */
+.today-card[data-intensity="timetrial"] {
+    border: 2px solid #EF4444 !important;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(245, 158, 11, 0.12) 100%) !important;
+    animation: pulse-timetrial 2.2s infinite ease-in-out;
+}
+
+@keyframes pulse-timetrial {
+    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+    70% { box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.badge-timetrial {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #EF4444;
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 0.72rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.6);
+    margin-bottom: 12px;
+}
+
+/* Tipografia Gigante de Distância */
+.hero-distance-huge {
+    font-size: 3.8rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -2px;
+    margin: 10px 0 16px 0;
+}
+.hero-distance-huge span {
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-left: 4px;
+    letter-spacing: 0;
+}
+
+/* Timeline Visual de Fases do Macrociclo */
+.macro-timeline-container {
+    margin: 20px 0 10px 0;
+}
+.macro-timeline-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 2px 12px 2px;
+    scrollbar-width: none;
+}
+.macro-timeline-scroll::-webkit-scrollbar {
+    display: none;
+}
+.phase-card {
+    flex: 0 0 150px;
+    background: var(--card-bg, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+    border-radius: var(--radius-md, 14px);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: all 0.25s ease;
+}
+.phase-card.active-phase {
+    border-color: var(--brand-accent, #0EA5E9);
+    background: rgba(14, 165, 233, 0.1);
+    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.15);
+}
+.phase-chip {
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 10px;
+    width: fit-content;
+    letter-spacing: 0.4px;
+}
+.phase-chip.status-atual { background: #0EA5E9; color: #fff; }
+.phase-chip.status-futuro { background: rgba(255,255,255,0.1); color: var(--text-tertiary); }
+.phase-chip.status-concluido { background: rgba(16, 185, 129, 0.2); color: #10B981; }
+
+/* ==========================================
+   CARD SEPARADO MACROCICLO & SWITCH ESTEIRA
+   ========================================== */
+
+/* Card Separado para o Macrociclo */
+.macro-card-standalone {
+    background: var(--card-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: var(--radius-lg, 18px);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+

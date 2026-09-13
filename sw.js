@@ -1,16 +1,21 @@
-const CACHE_NAME = 'trote-pwa-v2';
+const CACHE_NAME = 'trote-pwa-v3'; // Versão atualizada para forçar a renovação do cache
 
-// Recursos essenciais para cache offline
+// Recursos essenciais para cache offline (substituído ./app.js pelos novos scripts modularizados)
 const STATIC_ASSETS = [
   './',
   './index.html',
   './style.css',
-  './app.js',
   './manifest.json',
+  './js/utils.js',
+  './js/coach-engine.js',
+  './js/ui-render.js',
+  './js/ui-events.js',
   './img/icon-192.png',
   './img/icon-512.png',
   './img/Trote-logo.svg',
+  './img/Trote-logo-light.svg',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap',
+  'https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&display=swap',
   'https://cdn.jsdelivr.net/npm/chart.js'
 ];
 
@@ -51,7 +56,6 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => {
         // Falha de rede (offline): usa o cache silenciosamente
       });
-
       return cachedResponse || fetchPromise;
     })
   );

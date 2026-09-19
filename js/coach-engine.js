@@ -121,9 +121,26 @@ class RunningCoach {
 
         novosDias.sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
         const dayLongao = novosDias[novosDias.length - 1]; 
-        let dayTempo = novosDias[0]; 
-        if (novosDias.length >= 3) dayTempo = novosDias[Math.floor((novosDias.length - 1) / 2)];
-        const diasRegen = novosDias.filter(d => d !== dayLongao && d !== dayTempo);
+        
+        let dayTempo, diasRegen = [];
+
+        // NOVA LÓGICA DA IA DE ALOCAÇÃO (Treinos Colados)
+        if (novosDias.length === 3) {
+            const gap = novosDias[1] - novosDias[0];
+            if (gap === 1) {
+                // Se escolheu dias colados (Ex: Ter(2) e Qua(3))
+                dayTempo = novosDias[0]; // 1º dia é Qualidade
+                diasRegen = [novosDias[1]]; // 2º dia é Regenerativo / Fadiga
+            } else {
+                // Se escolheu dias espaçados (Ex: Ter, Qui, Dom)
+                dayTempo = novosDias[1]; 
+                diasRegen = [novosDias[0]]; 
+            }
+        } else {
+            dayTempo = novosDias[0]; 
+            if (novosDias.length >= 3) dayTempo = novosDias[Math.floor((novosDias.length - 1) / 2)];
+            diasRegen = novosDias.filter(d => d !== dayLongao && d !== dayTempo);
+        }
 
         this.state.atleta.diasTreino = { longao: dayLongao, tempo: dayTempo, regen: diasRegen };
         const hojeISO = getLocalISODate();
@@ -162,7 +179,7 @@ class RunningCoach {
                 let idxPendente = pendentesQueue.findIndex(t => 
                     (tipo === "Longao" && (t.tipo.includes("Longão") || t.tipo.includes("LISS"))) ||
                     (tipo === "Tempo" && (t.tipo.includes("Tempo") || t.tipo.includes("Intervalado") || t.tipo.includes("Tiros") || t.tipo.includes("Subidas") || t.tipo.includes("Fartlek"))) ||
-                    (tipo === "Regenerativo" && t.tipo.includes("Regenerativo")) ||
+                    (tipo === "Regenerativo" && (t.tipo.includes("Regenerativo") || t.tipo.includes("Rodagem em Fadiga"))) ||
                     (tipo === "PROVA ALVO" && t.tipo === "PROVA ALVO")
                 );
 
@@ -260,7 +277,7 @@ class RunningCoach {
                     const tempoMin = (dist * paceSeg) / 60;
                     
                     let ifEst = 0.75; 
-                    if (treinoPlanejado.tipo.includes("Regenerativo")) ifEst = 0.60;
+                    if (treinoPlanejado.tipo.includes("Regenerativo") || treinoPlanejado.tipo.includes("Rodagem em Fadiga")) ifEst = 0.60;
                     else if (treinoPlanejado.tipo.includes("Tempo") || treinoPlanejado.tipo.includes("Cruise")) ifEst = 0.88;
                     else if (treinoPlanejado.tipo.includes("Intervalado") || treinoPlanejado.tipo.includes("Tiros")) ifEst = 0.95;
                     else if (treinoPlanejado.tipo === "PROVA ALVO") ifEst = 0.92;
@@ -366,10 +383,26 @@ class RunningCoach {
         dias.sort((a,b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
         
         const dayLongao = dias[dias.length - 1]; 
-        let dayTempo = dias[0]; 
-        if(dias.length >= 3) dayTempo = dias[Math.floor((dias.length - 1) / 2)];
+        let dayTempo, diasRegen = [];
+
+        // NOVA LÓGICA DA IA DE ALOCAÇÃO (Treinos Colados)
+        if (dias.length === 3) {
+            const gap = dias[1] - dias[0];
+            if (gap === 1) {
+                // Se escolheu dias colados (Ex: Ter(2) e Qua(3))
+                dayTempo = dias[0]; // 1º dia é Qualidade
+                diasRegen = [dias[1]]; // 2º dia é Regenerativo / Fadiga
+            } else {
+                // Se escolheu dias espaçados (Ex: Ter, Qui, Dom)
+                dayTempo = dias[1]; 
+                diasRegen = [dias[0]]; 
+            }
+        } else {
+            dayTempo = dias[0]; 
+            if(dias.length >= 3) dayTempo = dias[Math.floor((dias.length - 1) / 2)];
+            diasRegen = dias.filter(d => d !== dayLongao && d !== dayTempo);
+        }
         
-        const diasRegen = dias.filter(d => d !== dayLongao && d !== dayTempo);
         const dataHojeISO = getLocalISODate();
         
         const tenisInicial = [{
@@ -664,14 +697,34 @@ class RunningCoach {
                 }
             } 
             else if (numRegen > 0 && (regen.includes(diaSemanaNormal) || regen.includes(diaSemana))) {
-                tipo = "Regenerativo"; 
-                distancia = Math.max(3, (volSemanalAtual * 0.35) / numRegen); 
-                prescricao = "Recovery ativo e liberação metabólica. Mantenha Z1 rigorosa sem pressa.";
+                // Verifica se ontem foi o dia de qualidade
+                const ontemNormal = diaSemanaNormal - 1 < 0 ? 6 : diaSemanaNormal - 1;
+                const ontemIso = diaSemana - 1 === 0 ? 7 : diaSemana - 1;
+                const ontemFoiQualidade = (ontemNormal === tempo || ontemIso === tempo);
                 
-                if (fasePlano !== "Polimento (Tapering)") {
-                    estrutura = [`${distancia.toFixed(1)}km leves em Z1`, "Final: 4x 80m Strides (Acelerações soltas)"];
-                } else {
-                    estrutura = [`${distancia.toFixed(1)}km em Z1 estrita`];
+                distancia = Math.max(3, (volSemanalAtual * 0.35) / numRegen);
+
+                // LÓGICA DE FADIGA CUMULATIVA (Só para >= 21k e em dias consecutivos)
+                if (ontemFoiQualidade && distAlvo >= 21.1) {
+                    tipo = "Rodagem em Fadiga (Z2)";
+                    prescricao = "Estratégia Back-to-Back: Corra em Z2 (Leve a Moderado) com as pernas pesadas de ontem. Isso otimiza a queima de gordura e te prepara mentalmente para o final da prova.";
+                    
+                    if (fasePlano !== "Polimento (Tapering)") {
+                        estrutura = [`${distancia.toFixed(1)}km constantes em Z2 (Foque na postura, mesmo com fadiga)`];
+                    } else {
+                        estrutura = [`${(distancia * 0.7).toFixed(1)}km em Z1 estrita (Polimento)`];
+                    }
+                } 
+                // LÓGICA TRADICIONAL / PARA 5k e 10k
+                else {
+                    tipo = "Regenerativo";
+                    prescricao = "Recovery ativo e liberação metabólica. Mantenha Z1 rigorosa sem pressa.";
+                    
+                    if (fasePlano !== "Polimento (Tapering)") {
+                        estrutura = [`${distancia.toFixed(1)}km muito leves em Z1`, "Final: 4x 80m Strides (Acelerações soltas)"];
+                    } else {
+                        estrutura = [`${distancia.toFixed(1)}km em Z1 estrita`];
+                    }
                 }
             }
             
@@ -719,6 +772,7 @@ class RunningCoach {
 
         const mapaZonas = {
             "Regenerativo": { pace: this._formatarFaixaRitmo(base * 1.22, base * 1.32), fc: `Z1 (${calcBPM(0.50, 0.60)})`, guia: explicacoes.Z1 },
+            "Rodagem em Fadiga (Z2)": { pace: this._formatarFaixaRitmo(base * 1.10, base * 1.20), fc: `Z2 (${calcBPM(0.60, 0.70)})`, guia: "🧠 Resistência Mental: Você vai começar o treino já cansado. Mantenha a Z2 firme, o benefício fisiológico aqui é gigante." },
             "Longão": { pace: this._formatarFaixaRitmo(base * 1.10, base * 1.20), fc: `Z2 (${calcBPM(0.60, 0.70)})`, guia: explicacoes.Z2 },
             "Longão Rodagem Z2": { pace: this._formatarFaixaRitmo(base * 1.10, base * 1.20), fc: `Z2 (${calcBPM(0.60, 0.70)})`, guia: explicacoes.Z2 },
             "Longão Aeróbico (LISS)": { pace: this._formatarFaixaRitmo(base * 1.12, base * 1.22), fc: `Z2 (${calcBPM(0.60, 0.70)})`, guia: explicacoes.Z2 },
@@ -888,7 +942,7 @@ class RunningCoach {
             let expectedRPE = 5;
             const tipo = treino.tipo;
 
-            if (tipo.includes("Regenerativo")) expectedRPE = 3;
+            if (tipo.includes("Regenerativo") || tipo.includes("Rodagem em Fadiga")) expectedRPE = 3;
             else if (tipo.includes("Longão")) expectedRPE = 6;
             else if (tipo.includes("Tempo") || tipo.includes("Cruise") || tipo.includes("Fartlek")) expectedRPE = 8;
             else if (tipo.includes("Intervalado") || tipo.includes("Tiros") || tipo.includes("Subidas") || tipo.includes("Time Trial") || tipo === "PROVA ALVO") expectedRPE = 9;
@@ -923,7 +977,7 @@ class RunningCoach {
                 if (!prox.ajustadoPorIA) {
                     let msgAcao = "";
 
-                    if (!prox.tipo.includes("Regenerativo") && !prox.tipo.includes("Longão")) {
+                    if (!prox.tipo.includes("Regenerativo") && !prox.tipo.includes("Longão") && !prox.tipo.includes("Rodagem em Fadiga")) {
                         prox.tipoOriginal = prox.tipo;
                         prox.tipo = "Regenerativo";
                         prox.prescricao = "⚠️ OVERREACHING DETECTADO. Sessão convertida para regenerativa em Z1 para dissipar fadiga aguda do sistema nervoso.";

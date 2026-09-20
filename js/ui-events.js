@@ -250,6 +250,17 @@ document.getElementById('form-setup')?.addEventListener('submit', (e) => {
     }
     
     const dataAlvoStr = document.getElementById('setup-data-alvo').value;
+    const dAlvoValida = parseLocalDate(dataAlvoStr);
+    const diasMinimos = Math.ceil((dAlvoValida - new Date()) / (1000 * 60 * 60 * 24));
+    
+    if (diasMinimos < 14) {
+        const warnStep4 = document.getElementById('setup-warning-step4');
+        if (warnStep4) {
+            warnStep4.style.display = 'block';
+            warnStep4.innerHTML = '⚠️ <b>Atenção:</b> A data da prova deve estar pelo menos 2 semanas no futuro para permitir um macrociclo seguro.';
+        }
+        return; // Impede a criação do plano quebrado
+    }
     const distAlvo = parseFloat(document.getElementById('setup-dist-alvo').value) || 10;
     const volSemanal = parseFloat(document.getElementById('setup-vol-semanal').value) || 20;
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
@@ -284,6 +295,11 @@ document.getElementById('form-setup')?.addEventListener('submit', (e) => {
 
 document.getElementById('form-treino')?.addEventListener('submit', (e) => {
     e.preventDefault();
+    const btnSubmit = e.target.querySelector('button[type="submit"]');
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = "Salvando...";
+    }
     const ehEdicao = document.getElementById('treino-edit-mode').value === "true";
     const tempoStr = document.getElementById('input-tempo').value;
     const tempoMin = app._tempoStringParaMinutos(tempoStr);
@@ -305,6 +321,14 @@ document.getElementById('form-treino')?.addEventListener('submit', (e) => {
     if(ultimoTreino) {
         showToast(ehEdicao ? "✏️ Treino atualizado com sucesso!" : `🔥 Treino salvo! Você gerou <strong>${ultimoTreino.tss} TSS</strong>. Seu Fitness subiu!`);
     }
+
+    if (btnSubmit) {
+            setTimeout(() => {
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "Salvar Sessão";
+            }, 500);
+        }
+
 });
 
 document.getElementById('form-config')?.addEventListener('submit', (e) => {

@@ -4,7 +4,9 @@
 function renderizarTelas() {
     const navTabs = document.getElementById('nav-tabs');
     const btnConfig = document.getElementById('btn-config');
-    
+    const uiHoje = document.getElementById('ui-hoje');
+    if (uiHoje) uiHoje.classList.add('today-card');
+
     if (!app.state) {
         navTabs.classList.remove('active');
         btnConfig.style.display = 'none';
@@ -207,6 +209,16 @@ function atualizarTelasGlobais() {
     
     uiHoje.classList.add('today-card');
 
+    // === CÓDIGO DO ALERTA MOVIDO PARA CÁ ===
+    let alertaHtml = '';
+    if (app.state.atleta.alertaSeguranca) {
+        alertaHtml = `
+        <div style="background: rgba(255, 149, 0, 0.15); border: 1px solid var(--warning); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 20px; text-align: left; width: 100%;">
+            <strong style="color: var(--warning); font-size: 0.85rem; text-transform: uppercase;">⚠️ Intervenção de Segurança</strong>
+            <p style="color: var(--text-primary); font-size: 0.85rem; margin-top: 4px;">${app.state.atleta.alertaSeguranca}</p>
+        </div>`;
+    }
+
     // 1. Tratamento seguro para localizar o treino de hoje
     let treinoHoje = app.state.plano.find(t => t.dataISO === hojeISO && t.tipo !== "Descanso");
     if (!treinoHoje) {
@@ -254,16 +266,16 @@ function atualizarTelasGlobais() {
         </div>
     `;
 
-    // Renderização do Hero Card Principal (Hoje)
+    // Renderização do Hero Card Principal (Hoje) - COM O ALERTA INCLUÍDO EM TODAS AS TELAS
     if (!treinoHoje) {
         uiHoje.removeAttribute('data-intensity');
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Ciclo Concluído</h2><p class="today-desc">Jornada finalizada com sucesso!</p>`;
+        uiHoje.innerHTML = `${alertaHtml}<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Ciclo Concluído</h2><p class="today-desc">Jornada finalizada com sucesso!</p>`;
     } else if (treinoHoje.concluido) {
         uiHoje.removeAttribute('data-intensity');
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc">Sessão finalizada. Foco no descanso.</p>${progressHtml}`;
+        uiHoje.innerHTML = `${alertaHtml}<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc">Sessão finalizada. Foco no descanso.</p>${progressHtml}`;
     } else if (treinoHoje.tipo === "Descanso") {
         uiHoje.removeAttribute('data-intensity');
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Recovery</h2><div class="today-rest"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div><p class="today-desc">O ganho de performance ocorre no repouso.</p>${progressHtml}`;
+        uiHoje.innerHTML = `${alertaHtml}<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Recovery</h2><div class="today-rest"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div><p class="today-desc">O ganho de performance ocorre no repouso.</p>${progressHtml}`;
     } else {
         const tipo = treinoHoje.tipo;
         const ehTimeTrial = tipo.includes("Time Trial") || tipo.includes("Teste");
@@ -316,6 +328,7 @@ function atualizarTelasGlobais() {
             </div>`;
 
         uiHoje.innerHTML = `
+            ${alertaHtml}
             ${badgeValidation}
             <div class="phase-badge">${nomeFase}</div>
             <div class="today-date">${formatarDataHoje()}</div>

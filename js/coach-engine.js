@@ -5,11 +5,15 @@ class RunningCoach {
     constructor() {
         this.state = this.loadState();
         if (this.state) {
-            if(!this.state.atleta.tenis) this.state.atleta.tenis = [];
+            if (!this.state.atleta) this.state.atleta = {};
+            if (!this.state.atleta.tenis) this.state.atleta.tenis = [];
+            if (!this.state.treinosRealizados) this.state.treinosRealizados = [];
+            if (!this.state.logs) this.state.logs = [];
+            if (this.state.atleta.alertaSeguranca === undefined) this.state.atleta.alertaSeguranca = "";
             this.recalcularLinhaDoTempo();
         }
     }
-    
+         
     loadState() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
@@ -18,48 +22,156 @@ class RunningCoach {
             return null;
         }
     }
-    
+         
     saveState() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
     }
 
+    // ------------------------------------------------------------------
+    // PROTOCOLO 1: DETRAINING (RETORNO PÓS-PAUSA)
+    // ------------------------------------------------------------------
+    verificarInatividadeEReajustar() {
+        if (!this.state || !this.state.treinosRealizados || this.state.treinosRealizados.length === 0) return;
+
+        const hojeISO = getLocalISODate();
+        const realizadosOrdenados = [...this.state.treinosRealizados].sort((a, b) => new Date(b.dataISO) - new Date(a.dataISO));
+        const ultimoTreino = realizadosOrdenados[0];
+        
+        const dHoje = parseLocalDate(hojeISO);
+        const dUltimo = parseLocalDate(ultimoTreino.dataISO);
+        const diasInativo = Math.floor((dHoje - dUltimo) / (1000 * 60 * 60 * 24));
+
+        // Trava para aplicar o ajuste apenas uma vez por janela de inatividade
+        const idAjuste = `${ultimoTreino.dataISO}_${hojeISO}`;
+        if (diasInativo >= 7 && this.state.atleta.ultimoAjusteInatividade !== idAjuste) {
+            let fatorCorte = 1.0;
+            let acrescimoPaceSeg = 0;
+            let msgImpacto = "";
+
+            if (diasInativo >= 28) {
+                fatorCorte = 0.50; // Reduz 50% do volume
+                acrescimoPaceSeg = 30; // +30s/km devido à perda neuromuscular
+                msgImpacto = "Pausa severa (>28 dias). Volume cortado em 50% e Pace Base suavizado em +30s/km para readaptação tecidual.";
+            } else if (diasInativo >= 15) {
+                fatorCorte = 0.60; // Reduz 40% do volume
+                acrescimoPaceSeg = 15; // +15s/km
+                msgImpacto = "Pausa média (15-28 dias). Volume cortado em 40% e Pace Base suavizado em +15s/km.";
+            } else {
+                fatorCorte = 0.75; // Reduz 25% do volume
+                acrescimoPaceSeg = 0;
+                msgImpacto = "Pausa curta (7-14 dias). Volume do macrociclo reduzido em 25% para evitar sobrecarga aguda.";
+            }
+
+            // Aplica as alterações no perfil do atleta
+            this.state.atleta.multiplicadorVolume = parseFloat((this.state.atleta.multiplicadorVolume * fatorCorte).toFixed(2));
+            if (acrescimoPaceSeg > 0) {
+                this.state.atleta.paceBaseSegundos += acrescimoPaceSeg;
+            }
+
+            this.state.atleta.ultimoAjusteInatividade = idAjuste;
+            this.state.atleta.alertaSeguranca = `Detraining Ativo: ${msgImpacto}`;
+
+            this.state.logs.unshift({
+                data: new Date().toLocaleDateString('pt-BR'),
+                msg: `⚠️ **Protocolo Detraining (${diasInativo} dias inativo):** ${msgImpacto}`
+            });
+
+            // Regenera o macrociclo futuro com os novos parâmetros
+            this.gerarPlanoTreino();
+            this.saveState();
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // PROTOCOLO 2: GUARDRAIL DE METAS TÓXICAS (RAMP RATE)
+    // ------------------------------------------------------------------
+    validarEProtegerMeta(volBase, distAlvo, semanasTotais) {
+        const picoNecessario = Math.max(volBase * 1.2, distAlvo * 2.2);
+        const taxaCrescimentoNecessaria = Math.pow(picoNecessario / Math.max(1, volBase), 1 / Math.max(1, semanasTotais - 2));
+
+        this.state.atleta.alertaSeguranca = ""; // Reseta alertas anteriores
+
+        // Se a rampa semanal exigida for maior que 12%/semana (Teto biológico 10-12%)
+        if (taxaCrescimentoNecessaria > 1.12) {
+            if (this.state.prova.tipoMeta === 'tempo') {
+                this.state.prova.tipoMeta = 'concluir';
+                this.state.prova.paceAlvoSegundos = null;
+                
+                const percCalculado = ((taxaCrescimentoNecessaria - 1) * 100).toFixed(1);
+                const msg = `Guardrail: A meta exigiria ${percCalculado}%/semana de evolução de volume. Rebaixada para 'Apenas Concluir' para proteger suas articulações.`;
+                
+                this.state.atleta.alertaSeguranca = msg;
+                this.state.logs.unshift({
+                    data: new Date().toLocaleDateString('pt-BR'),
+                    msg: `🛡️ **Guardrail de Segurança:** ${msg}`
+                });
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // PROTOCOLO 4: GESTÃO DE TREINOS PERDIDOS ("Ghost Workout Rule")
+    // ------------------------------------------------------------------
+    gestaoTreinosPerdidos() {
+        if (!this.state || !this.state.plano) return;
+        const hojeISO = getLocalISODate();
+
+        let alteracaoFeita = false;
+        this.state.plano.forEach(treino => {
+            // Se a data já passou, não foi concluído e não é descanso nem já cancelado
+            if (treino.dataISO < hojeISO && !treino.concluido && treino.tipo !== "Descanso" && treino.tipo !== "Não Realizado") {
+                const tipoOriginal = treino.tipo;
+                treino.tipo = "Não Realizado";
+                treino.prescricao = `Sessão expirada (${tipoOriginal}). Regra de Ouro: Treino perdido é treino cancelado. Não compense volume extra.`;
+                treino.distanciaBase = 0;
+                treino.estrutura = [];
+                alteracaoFeita = true;
+
+                const [, m, d] = treino.dataISO.split('-');
+                this.state.logs.unshift({
+                    data: new Date().toLocaleDateString('pt-BR'),
+                    msg: `🚫 **Treino Expirado (${d}/${m}):** A sessão de ${tipoOriginal} foi cancelada para evitar acúmulo excessivo de fadiga.`
+                });
+            }
+        });
+
+        if (alteracaoFeita) {
+            this.saveState();
+        }
+    }
+
+
     rebalancearSemana(dataIsoRef) {
         if (!this.state || !this.state.plano) return;
-
         const { start, end } = obterLimitesDaSemana(dataIsoRef);
         const treinosDaSemana = this.state.plano
             .filter(t => t.dataISO >= start && t.dataISO <= end && t.tipo !== "Descanso")
             .sort((a, b) => new Date(a.dataISO) - new Date(b.dataISO));
-
         const ehIntenso = (tipo) => {
             return tipo.includes("Tempo") || tipo.includes("Intervalado") || 
-                tipo.includes("Tiros") || tipo.includes("Subidas") || 
-                tipo.includes("Time Trial") || tipo.includes("Cruise") || 
-                tipo.includes("Fartlek");
+                 tipo.includes("Tiros") || tipo.includes("Subidas") || 
+                 tipo.includes("Time Trial") || tipo.includes("Cruise") || 
+                 tipo.includes("Fartlek");
         };
-
         for (let i = 0; i < treinosDaSemana.length - 1; i++) {
             const t1 = treinosDaSemana[i];
             const t2 = treinosDaSemana[i + 1];
-
             const d1 = parseLocalDate(t1.dataISO);
             const d2 = parseLocalDate(t2.dataISO);
             const diffDias = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-
             if (diffDias === 1 && ehIntenso(t1.tipo) && ehIntenso(t2.tipo)) {
                 const novaData = new Date(d2);
                 novaData.setDate(d2.getDate() + 1);
                 const novaDataISO = getLocalISODate(novaData);
-
                 if (novaDataISO <= end && !t2.concluido) {
                     t2.dataISO = novaDataISO;
                     this.state.logs.unshift({
                         data: new Date().toLocaleDateString('pt-BR'),
-                        msg: `⚖️ <b>Rebalanceamento IA:</b> ${t2.tipo} adiado para ${novaDataISO.split('-').reverse().join('/')} para garantir recuperação neuromuscular.`
+                        msg: `🛡️ <b>Rebalanceamento IA:</b> ${t2.tipo} adiado para ${novaDataISO.split('-').reverse().join('/')} para garantir recuperação neuromuscular.`
                     });
                 } else if (!t2.concluido) {
                     t2.tipo = "Regenerativo";
-                    t2.prescricao = "⚖️ Rebalanceamento Automático: Sessão ajustada para Z1 para evitar sobrecarga de dias intensos colados.";
+                    t2.prescricao = "⚠️ Rebalanceamento Automático: Sessão ajustada para Z1 para evitar sobrecarga de dias intensos colados.";
                     const distRegen = Math.max(3, parseFloat((t2.distanciaBase * 0.7).toFixed(1)));
                     t2.distanciaBase = distRegen;
                     t2.estrutura = [`${distRegen}km leve em Z1`];
@@ -118,12 +230,9 @@ class RunningCoach {
 
     atualizarDiasTreino(novosDias) {
         if (!this.state || !novosDias || novosDias.length < 2) return;
-
         novosDias.sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
-        const dayLongao = novosDias[novosDias.length - 1]; 
-        
+        const dayLongao = novosDias[novosDias.length - 1];          
         let dayTempo, diasRegen = [];
-
         if (novosDias.length === 3) {
             const gap = novosDias[1] - novosDias[0];
             if (gap === 1) {
@@ -138,20 +247,15 @@ class RunningCoach {
             if (novosDias.length >= 3) dayTempo = novosDias[Math.floor((novosDias.length - 1) / 2)];
             diasRegen = novosDias.filter(d => d !== dayLongao && d !== dayTempo);
         }
-
         this.state.atleta.diasTreino = { longao: dayLongao, tempo: dayTempo, regen: diasRegen };
         const hojeISO = getLocalISODate();
-
         const treinosPassados = this.state.plano.filter(t => t.concluido || t.dataISO < hojeISO);
         const treinosFuturosPendentes = this.state.plano.filter(t => !t.concluido && t.dataISO >= hojeISO);
-
         const dataInicio = parseLocalDate(hojeISO);
         const dataFim = parseLocalDate(this.state.prova.dataStr);
         const diasTotais = Math.ceil((dataFim - dataInicio) / (1000 * 60 * 60 * 24));
-
         let novosTreinosFuturos = [];
         let pendentesQueue = [...treinosFuturosPendentes];
-
         for (let i = 0; i <= diasTotais; i++) {
             let dataTreino = new Date(dataInicio);
             dataTreino.setDate(dataInicio.getDate() + i);
@@ -159,9 +263,7 @@ class RunningCoach {
             
             const diaSemanaNormal = dataTreino.getDay();
             const diaSemanaIso = diaSemanaNormal === 0 ? 7 : diaSemanaNormal;
-
             let tipo = "Descanso";
-
             if (i === diasTotais) {
                 tipo = "PROVA ALVO";
             } else if (diaSemanaNormal === dayLongao || diaSemanaIso === dayLongao) {
@@ -171,7 +273,6 @@ class RunningCoach {
             } else if (diasRegen.includes(diaSemanaNormal) || diasRegen.includes(diaSemanaIso)) {
                 tipo = "Regenerativo";
             }
-
             if (tipo !== "Descanso") {
                 let idxPendente = pendentesQueue.findIndex(t => 
                     (tipo === "Longao" && (t.tipo.includes("Longão") || t.tipo.includes("LISS"))) ||
@@ -179,9 +280,7 @@ class RunningCoach {
                     (tipo === "Regenerativo" && (t.tipo.includes("Regenerativo") || t.tipo.includes("Rodagem em Fadiga"))) ||
                     (tipo === "PROVA ALVO" && t.tipo === "PROVA ALVO")
                 );
-
                 if (idxPendente === -1 && pendentesQueue.length > 0) idxPendente = 0;
-
                 if (idxPendente !== -1) {
                     const treinoReaproveitado = pendentesQueue.splice(idxPendente, 1)[0];
                     treinoReaproveitado.dataISO = dataIsoStr;
@@ -199,14 +298,12 @@ class RunningCoach {
                 });
             }
         }
-
         this.state.plano = [...treinosPassados, ...novosTreinosFuturos].sort((a, b) => new Date(a.dataISO) - new Date(b.dataISO));
         
         this.state.logs.unshift({ 
             data: new Date().toLocaleDateString('pt-BR'), 
-            msg: `🗓️ <b>Rotina Atualizada:</b> Dias de treino futuros reajustados sem perder o histórico.` 
+            msg: `📅 <b>Rotina Atualizada:</b> Dias de treino futuros reajustados sem perder o histórico.` 
         });
-
         this.saveState();
         this.recalcularLinhaDoTempo();
     }
@@ -220,16 +317,19 @@ class RunningCoach {
         if (simSlider) {
             this.atualizarSimulador(simSlider.value);
         }
-
         atualizarTelasGlobais();
         if (typeof showToast === 'function') {
-            showToast(this.state.modoEsteira ? "📟 Modo Esteira Ativo (km/h)" : "🏃 Modo Rua Ativo (Pace min/km)");
+            showToast(this.state.modoEsteira ? "🏃 Modo Esteira Ativo (km/h)" : "🏙️ Modo Rua Ativo (Pace min/km)");
         }
     }
         
     recalcularLinhaDoTempo() {
         if (!this.state || !this.state.atleta || !this.state.atleta.dataInicioISO) return;
         
+        // Protocolos IA de manutenção diária
+        this.gestaoTreinosPerdidos();
+        this.verificarInatividadeEReajustar();
+
         const dataInicial = parseLocalDate(this.state.atleta.dataInicioISO);
         const hoje = new Date();
         hoje.setHours(0,0,0,0);
@@ -268,7 +368,7 @@ class RunningCoach {
                 treinosDoDia.forEach(t => tssDia += t.tss);
             } else {
                 const treinoPlanejado = this.state.plano.find(t => t.dataISO === dataIsoStr);
-                if (treinoPlanejado && treinoPlanejado.tipo !== "Descanso") {
+                if (treinoPlanejado && treinoPlanejado.tipo !== "Descanso" && treinoPlanejado.tipo !== "Não Realizado") {
                     const dist = treinoPlanejado.distanciaBase * (this.state.atleta.multiplicadorVolume || 1.0);
                     const paceSeg = this.state.atleta.paceBaseSegundos;
                     const tempoMin = (dist * paceSeg) / 60;
@@ -308,11 +408,9 @@ class RunningCoach {
 
     calcularDecouplingCardiaco(distKm, tempoMin, fcMetade1, fcMetade2) {
         if (!fcMetade1 || !fcMetade2 || fcMetade1 <= 0 || fcMetade2 <= 0) return null;
-
         const velocidadeMmin = (distKm * 1000) / tempoMin;
         const ef1 = velocidadeMmin / fcMetade1; 
         const ef2 = velocidadeMmin / fcMetade2; 
-
         const desacoplamento = ((ef1 - ef2) / ef1) * 100;
         return parseFloat(desacoplamento.toFixed(1));
     }
@@ -333,29 +431,23 @@ class RunningCoach {
 
     calcularPrevisoesRiegel() {
         if (!this.state || !this.state.atleta) return null;
-
         const d1 = this.state.atleta.distanciaAtualMax || 10; 
         const t1Seg = (this.state.atleta.paceBaseSegundos * d1) / 0.97; 
-
         const distanciasAlvo = [
             { nome: "5k", dist: 5 },
             { nome: "10k", dist: 10 },
             { nome: "Meia (21.1k)", dist: 21.0975 },
             { nome: "Maratona (42.2k)", dist: 42.195 }
         ];
-
         return distanciasAlvo.map(item => {
             const t2Seg = t1Seg * Math.pow((item.dist / d1), 1.06);
             const paceMedioSeg = t2Seg / item.dist;
-
             const h = Math.floor(t2Seg / 3600);
             const m = Math.floor((t2Seg % 3600) / 60);
             const s = Math.round(t2Seg % 60);
-
             const tempoFormatado = h > 0 
                 ? `${h}h${m < 10 ? '0' : ''}${m}m` 
                 : `${m}m${s < 10 ? '0' : ''}${s}s`;
-
             return {
                 prova: item.nome,
                 tempoEstimado: tempoFormatado,
@@ -381,7 +473,6 @@ class RunningCoach {
         
         const dayLongao = dias[dias.length - 1]; 
         let dayTempo, diasRegen = [];
-
         if (dias.length === 3) {
             const gap = dias[1] - dias[0];
             if (gap === 1) {
@@ -409,7 +500,6 @@ class RunningCoach {
 
         let tempoAlvoMinutos = 0;
         let paceAlvoSeg = null;
-
         if (dadosForm.tipoMeta === 'tempo' && dadosForm.tempoAlvoStr) {
             tempoAlvoMinutos = this._tempoStringParaMinutos(dadosForm.tempoAlvoStr);
             if (tempoAlvoMinutos > 0 && dadosForm.distAlvo > 0) {
@@ -429,7 +519,8 @@ class RunningCoach {
                 multiplicadorVolume: 1.0, historicoCTL: [],
                 tenis: tenisInicial,
                 ultimaAtualizacaoISO: dataHojeISO,
-                diasTreino: { longao: dayLongao, tempo: dayTempo, regen: diasRegen }
+                diasTreino: { longao: dayLongao, tempo: dayTempo, regen: diasRegen },
+                alertaSeguranca: ""
             },
             prova: { 
                 distancia: dadosForm.distAlvo, 
@@ -441,7 +532,11 @@ class RunningCoach {
             plano: [], treinosRealizados: [], logs: []
         };
         
-        const msgMeta = dadosForm.tipoMeta === 'tempo' && paceAlvoSeg
+        // Guardrail: Valida e corrige meta impossível
+        const semanasTotais = Math.ceil((Math.ceil((parseLocalDate(dadosForm.dataAlvo) - parseLocalDate(dataHojeISO)) / (1000 * 60 * 60 * 24)) + 1) / 7);
+        this.validarEProtegerMeta(volSemanal, dadosForm.distAlvo, semanasTotais);
+
+        const msgMeta = this.state.prova.tipoMeta === 'tempo' && paceAlvoSeg
             ? `Meta: Sub-${this._minutosParaTempoString(tempoAlvoMinutos)} (Pace Alvo: ${this._segundosParaPace(paceAlvoSeg)}/km).`
             : `Meta: Concluir a prova de ${dadosForm.distAlvo}k de forma segura.`;
 
@@ -455,9 +550,8 @@ class RunningCoach {
     }
     
     // ==========================================
-    // GERADOR DE PLANO E ROTEMAMENTO (CLEAN CODE)
+    // GERADOR DE PLANO E ROTEAMENTO
     // ==========================================
-
     gerarPlanoTreino() {
         const dataInicio = parseLocalDate(this.state.atleta.dataInicioISO);
         const dataFim = parseLocalDate(this.state.prova.dataStr);
@@ -468,6 +562,7 @@ class RunningCoach {
         
         let idCounter = 0; 
         this.state.plano = [];
+
         const volSemanalBase = this.state.atleta.volumeSemanalBase;
         const distAlvo = this.state.prova.distancia;
         
@@ -481,7 +576,6 @@ class RunningCoach {
 
         const semanasTotais = Math.ceil((diasTotais + 1) / 7);
         
-        // 1. Cálculo de Volumes e Fases (Com Tapering Dinâmico)
         const volumesSemanais = this._calcularVolumesSemanais(semanasTotais, volSemanalBase, distAlvo);
         
         for (let i = 0; i <= diasTotais; i++) {
@@ -494,7 +588,6 @@ class RunningCoach {
             const numeroSemanaAtual = Math.floor(i / 7);
             const infoSemana = volumesSemanais[Math.min(numeroSemanaAtual, volumesSemanais.length - 1)];
             
-            // 2. Criação do Objeto de Contexto
             const ctx = {
                 distAlvo, ehMetaTempo, paceAlvoStr, maxLongao,
                 numeroSemanaAtual, semanasTotais, numRegen,
@@ -505,7 +598,6 @@ class RunningCoach {
                 ontemFoiQualidade: (diaSemanaNormal - 1 < 0 ? 6 : diaSemanaNormal - 1) === tempo || (diaSemana - 1 === 0 ? 7 : diaSemana - 1) === tempo
             };
             
-            // 3. Roteamento Limpo de Treinos
             let treino = { tipo: "Descanso", distancia: 0, prescricao: "Dia de descanso para adaptação muscular.", estrutura: [] };
             
             if (i === diasTotais) {
@@ -534,30 +626,23 @@ class RunningCoach {
         }
     }
 
-    // ==========================================
-    // SUB-MÉTODOS DE GERAÇÃO (LÓGICAS ISOLADAS)
-    // ==========================================
-
     _calcularVolumesSemanais(semanasTotais, volSemanalBase, distAlvo) {
         let volumesSemanais = [];
         let picoVolumeEfetivo = volSemanalBase;
         let volumeCorrida = volSemanalBase;
-
-        // Regra de Tapering Específico por Distância Alvo
-        let semanasTapering = 2; // Padrão para 5k, 10k e 21k
-        if (distAlvo >= 42.2) {
-            semanasTapering = 3; // Maratona exige 3 semanas de polimento
-        }
+        const RAMP_RATE_MAX = 1.10; // Teto biológico: máximo 10% de crescimento por semana
+        
+        let semanasTapering = 2;
+        if (distAlvo >= 42.2) semanasTapering = 3; 
         
         for (let w = 0; w < semanasTotais; w++) {
             const semanasParaProva = semanasTotais - w;
             let fasePlano = "";
-
-            const multCapDinamico = Math.min(4.0, 2.5 + (w * 0.05));
-            const capFisiologicoSemanal = volSemanalBase * multCapDinamico;
-            const capProva = Math.max(volSemanalBase * 1.2, distAlvo * 2.2);
-            const capSemanalAbsoluto = Math.min(capFisiologicoSemanal, capProva);
             
+            const capRampSegura = w === 0 ? volSemanalBase : volumesSemanais[w - 1].vol * RAMP_RATE_MAX;
+            const capProva = Math.max(volSemanalBase * 1.2, distAlvo * 2.2);
+            const capSemanalAbsoluto = Math.min(capRampSegura, capProva);
+
             if (semanasParaProva <= semanasTapering) {
                 fasePlano = "Polimento (Tapering)";
             } else if (semanasParaProva <= 10) {
@@ -565,10 +650,10 @@ class RunningCoach {
                 volumeCorrida = Math.min(volumeCorrida * 1.03, capSemanalAbsoluto);
             } else if (semanasParaProva <= 18) {
                 fasePlano = "Construção de Limiar";
-                volumeCorrida = Math.min(volumeCorrida * 1.025, capSemanalAbsoluto * 0.9);
+                volumeCorrida = Math.min(volumeCorrida * 1.025, capSemanalAbsoluto);
             } else {
                 fasePlano = "Base Aeróbica";
-                volumeCorrida = Math.min(volumeCorrida * 1.018, Math.max(volSemanalBase * 1.6, capSemanalAbsoluto * 0.70));
+                volumeCorrida = Math.min(volumeCorrida * 1.018, capSemanalAbsoluto);
             }
 
             if (fasePlano !== "Polimento (Tapering)" && volumeCorrida > picoVolumeEfetivo) {
@@ -579,15 +664,12 @@ class RunningCoach {
             const proximaEhSemanaDeTeste = semanasTotais > 20 && ((w + 2) % 10 === 0) && (semanasParaProva - (w + 1) > 3);
             const ehDeload = ((w % 4 === 3) || proximaEhSemanaDeTeste) && semanasParaProva > semanasTapering;
             
-            // Regra de Redução de Volume no Tapering
             if (fasePlano === "Polimento (Tapering)") {
                 if (distAlvo >= 42.2) {
-                    // Maratona: Progressão de descida longa (70% -> 50% -> 30%)
                     if (semanasParaProva === 3) volSemanalAtual = picoVolumeEfetivo * 0.70;
                     else if (semanasParaProva === 2) volSemanalAtual = picoVolumeEfetivo * 0.50;
                     else if (semanasParaProva === 1) volSemanalAtual = picoVolumeEfetivo * 0.30;
                 } else {
-                    // Outras distâncias: Corte direto (60% -> 40%)
                     if (semanasParaProva === 2) volSemanalAtual = picoVolumeEfetivo * 0.60;
                     else if (semanasParaProva === 1) volSemanalAtual = picoVolumeEfetivo * 0.40;
                 }
@@ -603,7 +685,7 @@ class RunningCoach {
     _gerarProvaAlvo(ctx) {
         let prescricao, estrutura;
         if (ctx.ehMetaTempo) {
-            prescricao = `🎯 DIA D: Execute o plano de ritmo cravando ${ctx.paceAlvoStr}/km. Confie na preparação e na gestão de combustível.`;
+            prescricao = `🏁 DIA D: Execute o plano de ritmo cravando ${ctx.paceAlvoStr}/km. Confie na preparação e na gestão de combustível.`;
             estrutura = [`${ctx.distAlvo}km contínuos mantendo o Pace Alvo de ${ctx.paceAlvoStr}/km.`];
         } else {
             prescricao = "🏁 DIA D: Conquista em foco! Mantenha ritmo confortável em Z2/Z3 e priorize completar a distância sem estresse de tempo.";
@@ -619,8 +701,8 @@ class RunningCoach {
         if (ehSemanaDeTeste) {
             const distTeste = ctx.distAlvo <= 10 ? 5 : 10;
             tipo = "Time Trial (Teste de Ritmo)";
-            distancia = 2 + distTeste + 1; // 2km aquec + dist + 1km soltura
-            prescricao = `🏁 DIA DE TESTE (${distTeste}k): Avaliação de evolução metabólica com pernas descansadas!`;
+            distancia = 2 + distTeste + 1; 
+            prescricao = `⏱️ DIA DE TESTE (${distTeste}k): Avaliação de evolução metabólica com pernas descansadas!`;
             estrutura = [
                 `Aquecimento: 2km suaves em Z1 + 4x acelerações`,
                 `Principal: ${distTeste}km em Esforço Sustentado (Z4/Z5)`,
@@ -628,8 +710,8 @@ class RunningCoach {
             ];
         } else {
             const pctLongao = ctx.numRegen === 0 ? 0.55 : 0.42;
-            let distBaseLongao = Math.min(ctx.volSemanalAtual * pctLongao, ctx.maxLongao); 
-
+            let distBaseLongao = Math.min(ctx.volSemanalAtual * pctLongao, ctx.maxLongao);
+            
             if (!ctx.ehDeload && ctx.semanasParaProva > 2 && ctx.fasePlano !== "Polimento (Tapering)") {
                 const pisoProporcional = ctx.distAlvo <= 10 ? ctx.distAlvo * 0.75 : ctx.distAlvo * 0.50;
                 distBaseLongao = Math.min(Math.max(distBaseLongao, pisoProporcional), ctx.maxLongao);
@@ -668,7 +750,7 @@ class RunningCoach {
                     const kmZ2 = Math.max(2, parseFloat((distancia - kmForte).toFixed(1)));
                     distancia = kmZ2 + kmForte;
                     prescricao = `Simulação mental: Feche os últimos ${kmForte}km cravados no Pace Alvo (${ctx.paceAlvoStr}/km).`;
-                    estrutura = [`Base: ${kmZ2}km em Z2`, `Ataque: Últimos ${kmForte}km no Pace Alvo (${ctx.paceAlvoStr}/km)`];
+                    estrutura = [`Base: ${kmZ2}km em Z2`, `Ataque: últimos ${kmForte}km no Pace Alvo (${ctx.paceAlvoStr}/km)`];
                 } else {
                     tipo = "Longão em Blocos de Ritmo";
                     const aquecKm = Math.max(2, parseFloat((distancia * 0.20).toFixed(1)));
@@ -687,7 +769,18 @@ class RunningCoach {
         let tipo, distancia, prescricao, estrutura;
         const pctTempo = ctx.numRegen === 0 ? 0.38 : 0.22;
         const distEstimada = Math.max(4, ctx.volSemanalAtual * pctTempo);
+    
+        // PACE ADAPTATIVO DA SEMANA
+        const paceAtualSeg = this.state.atleta.paceBaseSegundos;
+        const paceAlvoSeg = this.state.prova.paceAlvoSegundos || paceAtualSeg;
+        const progressoSemana = Math.min(1.0, ctx.numeroSemanaAtual / Math.max(1, ctx.semanasTotais - 2));
         
+        const paceSemanaLimiarSeg = Math.round(paceAtualSeg - ((paceAtualSeg - paceAlvoSeg) * progressoSemana * 0.7));
+        const paceSemanaTirosSeg = Math.round(paceSemanaLimiarSeg * 0.92); 
+        
+        const paceSemanaLimiarStr = this._segundosParaPace(paceSemanaLimiarSeg);
+        const paceSemanaTirosStr = this._segundosParaPace(paceSemanaTirosSeg);
+    
         if (ctx.fasePlano === "Polimento (Tapering)") {
             tipo = "Tiros de Polimento";
             distancia = 2 + (4 * 0.4) + 1;
@@ -696,7 +789,6 @@ class RunningCoach {
         } else if (!ctx.ehMetaTempo) {
             const intensosSuaves = ["Fartlek Confortável", "Tempo Run Moderado", "Rodagem com Estrutura", "Fartlek Livre"];
             tipo = intensosSuaves[ctx.numeroSemanaAtual % 4];
-
             if (tipo === "Fartlek Confortável") {
                 const reps = Math.max(5, Math.floor((distEstimada - 3) / 0.4));
                 distancia = 3 + (reps * 0.4);
@@ -716,30 +808,30 @@ class RunningCoach {
         } else {
             const intensosMeta = ["Tempo Run", "Cruise Intervals", "Tiros Longos", "Fartlek Específico"];
             tipo = intensosMeta[ctx.numeroSemanaAtual % 4];
-
+    
             if (tipo === "Tempo Run") {
                 const kmLimiar = Math.max(3, Math.round(distEstimada - 3));
                 distancia = 3 + kmLimiar;
-                prescricao = `Sustentação de Limiar: Execute o bloco firme próximo ao Pace Alvo (${ctx.paceAlvoStr}/km).`;
-                estrutura = [`Aquecimento: 2km Z1`, `Principal: ${kmLimiar}km firmes em Z4 (Limiar / Pace ~${ctx.paceAlvoStr}/km)`, `Soltura: 1km Z1`];
+                prescricao = `Sustentação de Limiar: Execute o bloco mantendo o pace adaptativo de ${paceSemanaLimiarStr}/km (Z4).`;
+                estrutura = [`Aquecimento: 2km Z1`, `Principal: ${kmLimiar}km firmes em Z4 (Pace ~${paceSemanaLimiarStr}/km)`, `Soltura: 1km Z1`];
             } else if (tipo === "Cruise Intervals") {
                 const blocoKm = ctx.distAlvo >= 21.1 ? 2 : 1;
                 const reps = Math.max(3, Math.floor((distEstimada - 3) / blocoKm));
                 distancia = 3 + (reps * blocoKm);
-                prescricao = `Fracionado de Limiar: Mantenha as repetições cravadas no Pace Alvo (${ctx.paceAlvoStr}/km).`;
-                estrutura = [`Aquecimento: 1.5km Z1`, `Principal: ${reps}x ${blocoKm}km Z4 (${ctx.paceAlvoStr}/km) com pausa de 90s trote Z1`, `Soltura: 1.5km Z1`];
+                prescricao = `Fracionado de Limiar: Mantenha as repetições cravadas em ${paceSemanaLimiarStr}/km (Z4).`;
+                estrutura = [`Aquecimento: 1.5km Z1`, `Principal: ${reps}x ${blocoKm}km Z4 (${paceSemanaLimiarStr}/km) com pausa de 90s trote Z1`, `Soltura: 1.5km Z1`];
             } else if (tipo === "Tiros Longos") {
                 const mTiro = ctx.distAlvo >= 21.1 ? 2000 : 1000;
                 const reps = Math.max(3, Math.round((distEstimada * 0.5 * 1000) / mTiro));
                 distancia = 3 + ((reps * mTiro) / 1000);
                 const nomeTiro = mTiro >= 1000 ? `${mTiro / 1000}km` : `${mTiro}m`;
-                prescricao = `Expansão de Potência Aeróbica: Corra os tiros 5s a 10s mais rápido que o Pace Alvo.`;
-                estrutura = [`Aquecimento: 2km Z1`, `Principal: ${reps}x ${nomeTiro} em Z4/Z5 (Pausa 2min Z1)`, `Soltura: 1km Z1`];
+                prescricao = `Expansão de Potência Aeróbica: Execute os tiros em ${paceSemanaTirosStr}/km (Z4/Z5).`;
+                estrutura = [`Aquecimento: 2km Z1`, `Principal: ${reps}x ${nomeTiro} em Z4/Z5 (${paceSemanaTirosStr}/km - Pausa 2min Z1)`, `Soltura: 1km Z1`];
             } else {
                 const reps = Math.max(5, Math.floor((distEstimada - 3) / 0.6));
                 distancia = 3 + parseFloat((reps * 0.6).toFixed(1));
-                prescricao = `Fartlek Específico: Alternância entre Pace Alvo (${ctx.paceAlvoStr}/km) e trote Z2.`;
-                estrutura = [`Aquecimento: 1.5km Z1`, `Principal: ${reps}x (3min no Pace Alvo Z4 / 2min Z2 trote)`, `Soltura: 1.5km Z1`];
+                prescricao = `Fartlek Específico: Alternância entre Pace de Limiar (${paceSemanaLimiarStr}/km) e trote Z2.`;
+                estrutura = [`Aquecimento: 1.5km Z1`, `Principal: ${reps}x (3min em ${paceSemanaLimiarStr}/km / 2min Z2 trote)`, `Soltura: 1.5km Z1`];
             }
         }
         return { tipo, distancia, prescricao, estrutura };
@@ -748,7 +840,7 @@ class RunningCoach {
     _gerarTreinoRegenerativo(ctx) {
         let tipo, prescricao, estrutura;
         let distancia = Math.max(3, (ctx.volSemanalAtual * 0.35) / ctx.numRegen);
-
+        
         if (ctx.ontemFoiQualidade && ctx.distAlvo >= 21.1) {
             tipo = "Rodagem em Fadiga (Z2)";
             prescricao = "Estratégia Back-to-Back: Corra em Z2 (Leve a Moderado) com as pernas pesadas de ontem. Isso otimiza a queima de gordura e prepara mentalmente para o final da prova.";
@@ -775,7 +867,6 @@ class RunningCoach {
     // ==========================================
     // UTILITÁRIOS (FORMATAÇÃO & CÁLCULOS)
     // ==========================================
-
     _segundosParaPace(seg) {
         if(!seg || isNaN(seg)) return "00:00";
         const m = Math.floor(seg / 60); 
@@ -798,11 +889,11 @@ class RunningCoach {
         const calcBPM = (minPct, maxPct) => `${Math.round(fcRepouso + (minPct * hrr))}-${Math.round(fcRepouso + (maxPct * hrr))} bpm`;
         
         const explicacoes = {
-            Z1: "🟢 Z1 (Recuperação): Muito leve. Conversa fácil em frases longas.",
-            Z2: "🔵 Z2 (Base Aeróbica): Confortável. Dá para bater papo sem perder o fôlego.",
-            Z3: "🟡 Z3 (Tempo / Moderado): Ritmo firme. Fôlego encurta, conversa em frases curtas.",
-            Z4: "🟠 Z4 (Limiar): Desconfortável / Forte. Exige foco total, fala apenas palavras soltas.",
-            Z5: "🔴 Z5 (VO2 Máx / Tiros): Esforço máximo. Sensação de falta de ar, impossível falar."
+            Z1: "🤍 Z1 (Recuperação): Muito leve. Conversa fácil em frases longas.",
+            Z2: "💙 Z2 (Base Aeróbica): Confortável. Dá para bater papo sem perder o fôlego.",
+            Z3: "💚 Z3 (Tempo / Moderado): Ritmo firme. Fôlego encurta, conversa em frases curtas.",
+            Z4: "💛 Z4 (Limiar): Desconfortável / Forte. Exige foco total, fala apenas palavras soltas.",
+            Z5: "❤️ Z5 (VO2 Máx / Tiros): Esforço máximo. Sensação de falta de ar, impossível falar."
         };
 
         const mapaZonas = {
@@ -819,10 +910,11 @@ class RunningCoach {
             "Tiros Longos": { pace: this._formatarFaixaRitmo(base * 0.90, base * 0.95), fc: `Z4/Z5 (${calcBPM(0.88, 0.94)})`, guia: explicacoes.Z4 },
             "Intervalado VO2": { pace: this._formatarFaixaRitmo(base * 0.82, base * 0.88), fc: `Z5 (${calcBPM(0.90, 1.00)})`, guia: explicacoes.Z5 },
             "Tiros de Polimento": { pace: this._formatarFaixaRitmo(base * 0.85, base * 0.90), fc: `Z5 (${calcBPM(0.90, 1.00)})`, guia: explicacoes.Z5 },
-            "Subidas": { pace: "Esforço Máx Rampa", fc: `Z5 (${calcBPM(0.90, 1.00)})`, guia: explicacoes.Z5 },
+            "Subidas": { pace: "Esforço Rampa", fc: `Z5 (${calcBPM(0.90, 1.00)})`, guia: explicacoes.Z5 },
             "Fartlek": { pace: "Variado", fc: `Z2 a Z5 (${calcBPM(0.60, 0.90)})`, guia: explicacoes.Z3 },
             "PROVA ALVO": { pace: this._formatarFaixaRitmo(base * 0.98, base * 1.02), fc: `Z3/Z4`, guia: explicacoes.Z4 },
-            "Descanso": { pace: "-", fc: "-", guia: "😴 Descanso total para adaptação muscular." }
+            "Descanso": { pace: "-", fc: "-", guia: "🛌 Descanso total para adaptação muscular." },
+            "Não Realizado": { pace: "-", fc: "-", guia: "Treino Expirado e cancelado pela IA." }
         };
 
         return new Proxy(mapaZonas, {
@@ -847,6 +939,7 @@ class RunningCoach {
         
         const ehVelocidade = tipoTreino.includes("Tempo") || tipoTreino.includes("Intervalado") || tipoTreino.includes("Tiros") || tipoTreino === "PROVA ALVO";
         const categoriaAlvo = ehVelocidade ? "velocidade" : "rodagem";
+
         let sugerido = ativos.find(t => t.categoria === categoriaAlvo);
         if (!sugerido) sugerido = ativos.find(t => t.categoria === "versatil");
         
@@ -884,7 +977,7 @@ class RunningCoach {
 
             this.state.logs.unshift({
                 data: new Date().toLocaleDateString('pt-BR'),
-                msg: `🏆 <b>EVOLUÇÃO DETECTADA (Time Trial):</b> Performance confirmada! Seu Pace Base evoluiu de ${paceAntigoStr}/km para ${paceNovoStr}/km. Todo o macrociclo futuro foi reajustado.`
+                msg: `🚀 <b>EVOLUÇÃO DETECTADA (Time Trial):</b> Performance confirmada! Seu Pace Base evoluiu de ${paceAntigoStr}/km para ${paceNovoStr}/km. Todo o macrociclo futuro foi reajustado.`
             });
 
             this.gerarPlanoTreino();
@@ -892,13 +985,18 @@ class RunningCoach {
     }
     
     processarTreino(treinoId, distReal, tempoMin, fcMedia, rpe, tenisId, ehEdicao = false) {
+        if (!distReal || distReal <= 0 || !tempoMin || tempoMin <= 0) {
+            if (typeof showToast === 'function') showToast("⚠️ Erro: Distância e Tempo devem ser maiores que zero.");
+            return;
+        }
         const treino = this.state.plano.find(t => t.id === parseInt(treinoId));
         if(!treino) return;
-        treino.concluido = true;
 
+        treino.concluido = true;
         let tss = 0, logMsg = `[${treino.tipo}] ${distReal}km. `;
         
         const idxExistente = this.state.treinosRealizados.findIndex(t => t.idReferencia == treino.id && t.dataISO === treino.dataISO);
+        
         if (ehEdicao && idxExistente > -1) {
             const treinoAntigo = this.state.treinosRealizados[idxExistente];
             if (treinoAntigo.tenisId) {
@@ -920,7 +1018,7 @@ class RunningCoach {
             logMsg += `Nova FC Máx (${fcMedia}). `;
         }
         
-        let ifFactor = 0.75;
+        let ifFactor = 0.75; 
         const fcNum = parseInt(fcMedia) || 0;
 
         if (!isNaN(fcNum) && fcNum > 0) {
@@ -936,6 +1034,7 @@ class RunningCoach {
         
         const fatorDeriva = this.calcularFatorDeriva(tempoMin, ifFactor);
         tss = Math.round(tss * fatorDeriva);
+
         logMsg += `Carga: ${tss} TSS.`;
         
         const novoRegistro = { 
@@ -1003,7 +1102,8 @@ class RunningCoach {
                 t.dataISO >= hojeISO && 
                 t.dataISO <= limiteISO && 
                 !t.concluido && 
-                t.tipo !== "Descanso"
+                t.tipo !== "Descanso" &&
+                t.tipo !== "Não Realizado"
             );
 
             let intervencaoRealizada = false;
@@ -1034,11 +1134,11 @@ class RunningCoach {
                     
                     prox.ajustadoPorIA = true;
                     intervencaoRealizada = true;
-
+                    
                     const [, m, d] = prox.dataISO.split('-');
                     this.state.logs.unshift({ 
                         data: new Date().toLocaleDateString('pt-BR'), 
-                        msg: `🚨 <b>Protocolo IA (${d}/${m}):</b> ${msgAcao}` 
+                        msg: `🛡️ <b>Protocolo IA (${d}/${m}):</b> ${msgAcao}` 
                     });
                 }
             });
@@ -1067,6 +1167,7 @@ class RunningCoach {
                 }
                 
                 this.state.treinosRealizados.splice(idx, 1);
+
                 const treinoPlano = this.state.plano.find(p => p.id == idRef && p.dataISO === dataISO);
                 if(treinoPlano) treinoPlano.concluido = false;
                 
@@ -1079,6 +1180,7 @@ class RunningCoach {
     
     calcularMonotoniaEFoster() {
         if (!this.state || !this.state.treinosRealizados) return { monotonia: 0, strain: 0, status: "Ideal" };
+        
         const hoje = new Date();
         hoje.setHours(0,0,0,0);
         
@@ -1109,8 +1211,8 @@ class RunningCoach {
         
         const monotonia = media / desvioPadrao;
         const strain = somaTotal * monotonia;
-        let status = "Ideal";
         
+        let status = "Ideal";
         if (monotonia > 2.0) status = "Alto Risco";
         else if (monotonia >= 1.5) status = "Atenção";
         
@@ -1127,6 +1229,7 @@ class RunningCoach {
         const elUnit = document.getElementById('sim-pace-unit');
         const elHr = document.getElementById('sim-hr-val');
         const elZone = document.getElementById('sim-zone-val');
+
         if (!elPace) return;
 
         if (this.state.modoEsteira) {
@@ -1143,9 +1246,9 @@ class RunningCoach {
         const hrMax = this.state.atleta.fcMax;
         const hrr = hrMax - hrRep;
 
-        const ratio = basePace / paceSegundos; 
-        
+        const ratio = basePace / paceSegundos;          
         const estHrrPct = ratio * 0.85;
+
         let estHr = hrRep + (estHrrPct * hrr);
         estHr = Math.min(hrMax, Math.max(hrRep, Math.round(estHr)));
 

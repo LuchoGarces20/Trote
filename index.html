@@ -4,18 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trote | Premium AI Coach</title>
-
     <!-- PWA & Mobile Icons -->
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="img/Trote-logo.svg">
     <link rel="apple-touch-icon" href="img/icon-192.png">
-
     <!-- Configurações do Navegador / iOS / Android -->
     <meta name="theme-color" id="theme-color-meta" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Trote">
-
     <!-- Fontes e Estilos -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,7 +30,7 @@
         </div>
         <div class="header-actions">
             <button class="btn-icon" id="btn-modo-esteira" onclick="app.alternarModoEsteira()" aria-label="Alternar Modo Esteira/Rua" title="Modo Rua / Esteira">
-                <span id="icon-modo-esteira" style="font-size: 1.1rem; line-height: 1;">🏃</span>
+                <span id="icon-modo-esteira" style="font-size: 1.1rem; line-height: 1;">🛣️</span>
             </button>
             <button class="btn-icon" id="btn-config" onclick="abrirConfig()" aria-label="Editar Perfil" style="display:none;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l-.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -123,73 +120,82 @@
                          <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">A sua rotina</h3>
                          <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Quais dias você vai pra rua?</p>
                      </div>
+
                      <div class="ios-days-wrapper">
                          <input type="checkbox" name="setup-dias" value="1" id="d-seg" class="ios-day-checkbox">
                          <label class="ios-day-label" for="d-seg">SEG</label>
+                         
                          <input type="checkbox" name="setup-dias" value="2" id="d-ter" class="ios-day-checkbox" checked>
                          <label class="ios-day-label" for="d-ter">TER</label>
+                         
                          <input type="checkbox" name="setup-dias" value="3" id="d-qua" class="ios-day-checkbox">
                          <label class="ios-day-label" for="d-qua">QUA</label>
+                         
                          <input type="checkbox" name="setup-dias" value="4" id="d-qui" class="ios-day-checkbox" checked>
                          <label class="ios-day-label" for="d-qui">QUI</label>
+                         
                          <input type="checkbox" name="setup-dias" value="5" id="d-sex" class="ios-day-checkbox">
                          <label class="ios-day-label" for="d-sex">SEX</label>
+                         
                          <input type="checkbox" name="setup-dias" value="6" id="d-sab" class="ios-day-checkbox">
                          <label class="ios-day-label" for="d-sab">SÁB</label>
+                         
                          <input type="checkbox" name="setup-dias" value="0" id="d-dom" class="ios-day-checkbox" checked>
                          <label class="ios-day-label" for="d-dom">DOM</label>
                      </div>
+
                      <div id="setup-warning-step3" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 14px 16px; font-size: 0.85rem;"></div>
 
-                     <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div> 
-                     
-                     <div style="text-align: center; margin-bottom: 20px;">     
-                         <h4 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--text-primary);">Treino de Força (Musculação)</h4> 
-                     </div> 
+                     <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div>
 
-                     <div class="form-group full-width" style="margin-bottom: 20px;">     
-                         <label for="setup-musculacao-faz" style="font-size: 0.8rem;">Você faz musculação?</label>     
+                     <div style="text-align: center; margin-bottom: 20px;">
+                         <h4 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--text-primary);">Treino de Força (Musculação)</h4>
+                     </div>
+
+                     <div class="form-group full-width" style="margin-bottom: 20px;">
+                         <label for="setup-musculacao-faz" style="font-size: 0.8rem;">Você faz musculação?</label>
                          <select id="setup-musculacao-faz" onchange="const val = this.value === 'sim'; document.getElementById('group-divisao-treino').style.display = val ? 'block' : 'none'; document.getElementById('group-dias-musculacao').style.display = val ? 'block' : 'none';" style="font-size: 1.1rem; padding: 16px;">
-    <option value="nao" selected>Não, apenas corro</option>
-    <option value="sim">Sim, faço musculação</option>
-</select>
-                     </div> 
+                             <option value="nao" selected>Não, apenas corro</option>
+                             <option value="sim">Sim, faço musculação</option>
+                         </select>
+                     </div>
 
-                     <div class="form-group full-width" id="group-divisao-treino" style="display:none; margin-bottom: 20px;">     
-                         <label for="setup-musculacao-divisao" style="font-size: 0.8rem;">Qual a sua divisão de treino?</label>     
-                         <select id="setup-musculacao-divisao" style="font-size: 1.1rem; padding: 16px;">         
-                             <option value="ab">AB (Superior / Inferior)</option>         
-                             <option value="abc">ABC (Push / Pull / Legs)</option>         
-                             <option value="abcd">ABCD (Por Grupo Muscular)</option>         
-                             <option value="fullbody">FullBody (Corpo Todo)</option>     
-                         </select> 
-                     </div> 
+                     <div class="form-group full-width" id="group-divisao-treino" style="display:none; margin-bottom: 20px;">
+                         <label for="setup-musculacao-divisao" style="font-size: 0.8rem;">Qual a sua divisão de treino?</label>
+                         <select id="setup-musculacao-divisao" style="font-size: 1.1rem; padding: 16px;">
+                             <option value="ab">AB (Superior / Inferior)</option>
+                             <option value="abc">ABC (Push / Pull / Legs)</option>
+                             <option value="abcd">ABCD (Por Grupo Muscular)</option>
+                             <option value="fullbody">FullBody (Corpo Todo)</option>
+                         </select>
+                     </div>
 
-                     <div class="form-group full-width" id="group-dias-musculacao" style="display:none; margin-bottom: 20px;">     
-                         <label style="font-size: 0.8rem; margin-bottom: 8px; display: block;">Em quais dias da semana você faz musculação?</label>     
-                         <div class="ios-days-wrapper">         
-                             <input type="checkbox" name="setup-dias-musc" value="1" id="dm-seg" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-seg">SEG</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="2" id="dm-ter" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-ter">TER</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="3" id="dm-qua" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-qua">QUA</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="4" id="dm-qui" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-qui">QUI</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="5" id="dm-sex" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-sex">SEX</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="6" id="dm-sab" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-sab">SÁB</label>         
-                             <input type="checkbox" name="setup-dias-musc" value="0" id="dm-dom" class="ios-day-checkbox">         
-                             <label class="ios-day-label" for="dm-dom">DOM</label>     
-                         </div> 
+                     <div class="form-group full-width" id="group-dias-musculacao" style="display:none; margin-bottom: 20px;">
+                         <label style="font-size: 0.8rem; margin-bottom: 8px; display: block;">Em quais dias da semana você faz musculação?</label>
+                         <div class="ios-days-wrapper">
+                             <input type="checkbox" name="setup-dias-musc" value="1" id="dm-seg" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-seg">SEG</label>
+                             <input type="checkbox" name="setup-dias-musc" value="2" id="dm-ter" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-ter">TER</label>
+                             <input type="checkbox" name="setup-dias-musc" value="3" id="dm-qua" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-qua">QUA</label>
+                             <input type="checkbox" name="setup-dias-musc" value="4" id="dm-qui" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-qui">QUI</label>
+                             <input type="checkbox" name="setup-dias-musc" value="5" id="dm-sex" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-sex">SEX</label>
+                             <input type="checkbox" name="setup-dias-musc" value="6" id="dm-sab" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-sab">SÁB</label>
+                             <input type="checkbox" name="setup-dias-musc" value="0" id="dm-dom" class="ios-day-checkbox">
+                             <label class="ios-day-label" for="dm-dom">DOM</label>
+                         </div>
                      </div>
 
                      <div class="form-grid" style="margin-top: 40px; gap: 16px;">
                          <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
-                         <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar</button>
+                         <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
                      </div>
                  </div>
+
                 <!-- PASSO 4: PARTIDA E CHEGADA -->
                 <div class="wizard-step" id="step-4">
                     <div style="text-align: center; margin-bottom: 32px;">
@@ -243,7 +249,9 @@
                             <input type="date" id="setup-data-alvo" required style="font-size: 1.1rem; padding: 16px;">
                         </div>
                     </div>
+
                     <div id="setup-warning-step4" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 16px; font-size: 0.85rem;"></div>
+
                     <div class="form-grid" style="margin-top: 32px; gap: 16px;">
                         <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
                         <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
@@ -273,8 +281,10 @@
                     
                     <div class="form-grid" style="margin-top: 40px; gap: 16px;">
                         <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
-<button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="finalizarOnboarding()">Gerar Meu Plano 🚀</button>                    </div>
+                        <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="finalizarOnboarding()">Gerar Meu Plano 🚀</button>
+                    </div>
                 </div>
+
             </form>
         </div>
     </div>
@@ -320,13 +330,13 @@
             <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 16px;">Arraste para estimar a resposta cardíaca de um pace na rua.</p>
             <div class="simulator-container">
                 <div class="sim-display">
-                <div class="sim-pace">
-                    <span id="sim-pace-val">05:30</span>
-                    <span id="sim-pace-unit" style="font-size: 0.9rem; color: var(--text-secondary); font-weight:600;">/km</span>
+                    <div class="sim-pace">
+                        <span id="sim-pace-val">05:30</span>
+                        <span id="sim-pace-unit" style="font-size: 0.9rem; color: var(--text-secondary); font-weight:600;">/km</span>
+                    </div>
+                    <div class="sim-hr"><span id="sim-hr-val">--</span><span style="font-size: 0.8rem; color: var(--text-tertiary); margin-left: 2px;">BPM</span></div>
+                    <div class="sim-zone" id="sim-zone-val">--</div>
                 </div>
-                <div class="sim-hr"><span id="sim-hr-val">--</span><span style="font-size: 0.8rem; color: var(--text-tertiary); margin-left: 2px;">BPM</span></div>
-                <div class="sim-zone" id="sim-zone-val">--</div>
-              </div>
                 <input type="range" id="sim-slider" min="180" max="540" value="330" step="5" oninput="app.atualizarSimulador(this.value)">
             </div>
         </div>
@@ -367,7 +377,7 @@
             <div id="ui-race-predictor" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;"></div>
         </div>
 
-         <div class="card" style="margin-top: 20px;">
+        <div class="card" style="margin-top: 20px;">
             <h2>Processamento AI (Logs)</h2>
             <div id="feed-relatorios" style="padding-top: 10px;"></div>
         </div>
@@ -410,8 +420,8 @@
             <input type="hidden" id="treino-id">
             <input type="hidden" id="treino-edit-mode" value="false">
             <input type="hidden" id="input-tipo">
-            
-<div class="form-group full-width" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; grid-column: 1 / -1; width: 100%;">
+
+            <div class="form-group full-width" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; grid-column: 1 / -1; width: 100%;">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="input-dist">DISTÂNCIA (KM)</label>
                     <input type="number" step="0.1" id="input-dist" placeholder="ex: 7.1" required style="font-size: 1.1rem; padding: 14px; width: 100%; box-sizing: border-box;">
@@ -429,19 +439,57 @@
 
             <div class="form-group full-width" style="margin-top: 8px;">
                 <label for="input-fc">FC Média (bpm) - Opcional</label>
-                <input type="number" id="input-fc" placeholder="Deixe em branco p/ usar sRPE" style="padding: 14px;"> 
+                <input type="number" id="input-fc" placeholder="Deixe em branco p/ usar sRPE" style="padding: 14px;">
             </div>
             
+            <!-- SELETOR VISUAL DE ESFORÇO (sRPE 1-10) -->
             <div class="form-group full-width" style="margin-top: 8px;">
-                <label for="input-rpe">Percepção de Esforço (sRPE 1-10)</label>
-                <select id="input-rpe" style="padding: 14px;">
-                    <option value="2">2 - Muito Leve (Consigo conversar sem pausar)</option>
-                    <option value="4">4 - Leve / Confortável (Ritmo de rodagem Z2)</option>
-                    <option value="6" selected>6 - Moderado (Cansaço controlado)</option>
-                    <option value="8">8 - Difícil (Limiar / Exige concentração constante)</option>
-                    <option value="9">9 - Muito Difícil (Tiros / Falta de ar pronunciada)</option>
-                    <option value="10">10 - Esforço Máximo (Exaustão total ao concluir)</option>
-                </select>
+                <label>Percepção de Esforço (sRPE 1-10)</label>
+                <input type="hidden" id="input-rpe" value="6">
+                <div class="srpe-grid" id="srpe-grid">
+                    <button type="button" class="srpe-btn" data-rpe="2" onclick="selecionarSRPE(2)">
+                        <span class="srpe-emoji">🟢</span>
+                        <div class="srpe-info">
+                            <strong>2 - Muito Leve</strong>
+                            <small>Conversacional sem pausa</small>
+                        </div>
+                    </button>
+                    <button type="button" class="srpe-btn" data-rpe="4" onclick="selecionarSRPE(4)">
+                        <span class="srpe-emoji">🟢</span>
+                        <div class="srpe-info">
+                            <strong>4 - Leve (Z2)</strong>
+                            <small>Confortável / Rodagem</small>
+                        </div>
+                    </button>
+                    <button type="button" class="srpe-btn active" data-rpe="6" onclick="selecionarSRPE(6)">
+                        <span class="srpe-emoji">🟡</span>
+                        <div class="srpe-info">
+                            <strong>6 - Moderado</strong>
+                            <small>Cansaço sob controle</small>
+                        </div>
+                    </button>
+                    <button type="button" class="srpe-btn" data-rpe="8" onclick="selecionarSRPE(8)">
+                        <span class="srpe-emoji">🟧</span>
+                        <div class="srpe-info">
+                            <strong>8 - Difícil (Z4)</strong>
+                            <small>Limiar / Exige foco</small>
+                        </div>
+                    </button>
+                    <button type="button" class="srpe-btn" data-rpe="9" onclick="selecionarSRPE(9)">
+                        <span class="srpe-emoji">🔴</span>
+                        <div class="srpe-info">
+                            <strong>9 - Muito Forte (Z5)</strong>
+                            <small>Intervalados / Ofegante</small>
+                        </div>
+                    </button>
+                    <button type="button" class="srpe-btn" data-rpe="10" onclick="selecionarSRPE(10)">
+                        <span class="srpe-emoji">💀</span>
+                        <div class="srpe-info">
+                            <strong>10 - Esforço Máximo</strong>
+                            <small>Exaustão total ao fim</small>
+                        </div>
+                    </button>
+                </div>
             </div>
             
             <div class="form-group full-width" style="margin-top: 24px;">
@@ -486,7 +534,7 @@
                 <input type="text" id="config-pace-base" placeholder="Ex: 05:30" required pattern="[0-9]{1,2}:[0-9]{2}">
             </div>
             <button type="button" class="btn-secondary" style="margin-bottom: 16px;" onclick="fecharModal('modal-config'); abrirModalDiasTreino();">
-                🗓️ Mudar Dias da Semana
+                Mudar Dias da Semana
             </button>
             <div class="form-group full-width" style="margin-top: 10px;">
                 <button type="submit" class="btn-primary">Atualizar Parâmetros</button>
@@ -526,22 +574,16 @@
             <div class="ios-days-wrapper" style="margin-bottom: 24px;">
                 <input type="checkbox" name="update-dias" value="1" id="ud-seg" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-seg">SEG</label>
-
                 <input type="checkbox" name="update-dias" value="2" id="ud-ter" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-ter">TER</label>
-
                 <input type="checkbox" name="update-dias" value="3" id="ud-qua" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-qua">QUA</label>
-
                 <input type="checkbox" name="update-dias" value="4" id="ud-qui" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-qui">QUI</label>
-
                 <input type="checkbox" name="update-dias" value="5" id="ud-sex" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-sex">SEX</label>
-
                 <input type="checkbox" name="update-dias" value="6" id="ud-sab" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-sab">SÁB</label>
-
                 <input type="checkbox" name="update-dias" value="0" id="ud-dom" class="ios-day-checkbox">
                 <label class="ios-day-label" for="ud-dom">DOM</label>
             </div>
@@ -578,7 +620,7 @@
                 <button type="submit" class="btn-primary">Gerar Plano de Combate</button>
             </div>
         </form>
-
+        
         <div id="resultado-estrategia" style="display: none; margin-top: 24px; animation: fadeIn 0.4s ease;">
             <div style="padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 16px;">
                 <div style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Pace Médio Necessário</div>
@@ -587,9 +629,10 @@
             <div id="res-blocos" style="display: flex; flex-direction: column; gap: 10px;"></div>
             
             <div class="insight-card" style="margin-top: 20px;">
-                <strong>⚡ Nutrição:</strong> <span id="res-nutricao"></span>
+                <strong>Nutrição:</strong> <span id="res-nutricao"></span>
             </div>
         </div>
+        
         <button type="button" class="btn-reset" style="width: 100%; margin-top: 20px; padding: 12px;" onclick="fecharModal('modal-estrategia')">Fechar</button>
     </div>
 </div>
@@ -598,7 +641,7 @@
 <div class="modal-overlay" id="modal-nova-meta" onclick="fecharModaisFora(event, 'modal-nova-meta')">
     <div class="card modal-card" id="card-nova-meta" onclick="event.stopPropagation()">
         <div style="width: 36px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 0 auto 16px auto;"></div>
-        <h2>🎯 Definir Próxima Prova</h2>
+        <h2>Definir Próxima Prova</h2>
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 20px;">
             Sua base física atual será usada como ponto de partida para recalcular suas zonas e carga do novo macrociclo.
         </p>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trote-pwa-v4'; // Versão atualizada para forçar a renovação do cache
+const CACHE_NAME = 'trote-pwa-v3'; // Versão atualizada para forçar a renovação do cache
 
 // Recursos essenciais para cache offline (substituído ./app.js pelos novos scripts modularizados)
 const STATIC_ASSETS = [
@@ -7,7 +7,9 @@ const STATIC_ASSETS = [
   './style.css',
   './manifest.json',
   './js/utils.js',
-  './js/coach-engine.js',
+  './js/coach-physiology.js',
+  './js/coach-planner.js',
+  './js/coach-state.js',
   './js/ui-render.js',
   './js/ui-events.js',
   './img/icon-192.png',

@@ -611,3 +611,57 @@ button:active, .tab-btn:active, .day-card:active {
     -webkit-backdrop-filter: blur(12px);
 }
 
+/* ==========================================
+   CLASSES UTILITÁRIAS (CLEAN CODE)
+   ========================================== */
+/* Musculação */
+.card-lembrete-forca {
+    margin-bottom: 20px; font-size: 0.85rem; color: var(--text-primary); font-weight: 500;
+    background: var(--bg-surface-elevated); padding: 14px; border-radius: var(--radius-sm);
+    border-left: 4px solid #8B5CF6; box-shadow: var(--shadow-card); text-align: left;
+}
+.text-highlight-forca { color: #8B5CF6; font-weight: 800; }
+.badge-forca {
+    margin-top: 8px; font-size: 0.75rem; color: #8B5CF6; font-weight: 700;
+    background: rgba(139, 92, 246, 0.1); padding: 4px 8px; border-radius: 6px; display: inline-block;
+}
+
+/* Guias e Dicas (Hero Card) */
+.hint-tenis { margin-bottom: 20px; font-size: 0.82rem; color: var(--text-primary); font-weight: 700; }
+.text-highlight-tenis { color: var(--brand-accent); font-weight: 600; }
+.guia-sensacao-box {
+    background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-sm);
+    font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 20px; text-align: left;
+    border-left: 3px solid var(--brand-accent);
+}
+.today-desc-small { font-size: 0.85rem; }
+
+/* Timeline e Previsões (Macrociclo) */
+.macro-timeline-title {
+    font-size: 0.78rem; font-weight: 800; color: var(--text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
+}
+.phase-card-title { font-size: 0.85rem; color: var(--text-primary); margin-top: 4px; }
+.phase-card-subtitle { font-size: 0.72rem; color: var(--text-tertiary); }
+.predictor-value { color: var(--brand-accent); font-size: 1.2rem; }
+.predictor-pace { font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px; }
+
+/* Forecast (Cards Expansíveis) */
+.workout-structure-list { font-size: 0.85rem; color: var(--text-secondary); margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.workout-structure-item { padding-left: 10px; border-left: 2px solid var(--brand-solid); }
+.forecast-desc-small { font-size: 0.8rem; color: var(--text-tertiary); margin-top: 14px; font-style: italic; }
+.forecast-desc-descanso { font-size: 0.85rem; color: var(--text-secondary); }
+
+/* Garagem e Histórico */
+.empty-state-text { color: var(--text-tertiary); font-size: 0.85rem; }
+.shoe-card-aposentado { opacity: 0.5; filter: grayscale(1); }
+.shoe-badge-aposentado { font-size: 0.7rem; color: var(--text-tertiary); margin-top: 8px; display: inline-block; }
+.btn-icon-small-garagem { margin-top: 8px; }
+.log-tenis-historico { font-size: 0.75rem; color: var(--brand-accent); }
+.history-actions { display: flex; gap: 6px; }
+.btn-icon-small-edit { border-color: var(--brand-accent); color: var(--brand-accent); }
+
+/* Visualização Macrociclo Completo */
+.macro-day-card { margin-bottom: 6px; padding: 12px 14px; cursor: default; }
+.macro-day-title { font-size: 0.9rem; }
+.macro-day-dist { font-size: 0.75rem; color: var(--text-tertiary); font-weight: normal; margin-left: 6px; }

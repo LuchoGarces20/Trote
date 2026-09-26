@@ -1,18 +1,14 @@
 // ==========================================
 // CONTROLADORES DE EVENTOS, MODAIS & BOOT
 // ==========================================
-
-// Wizard de Onboarding (Com trava de validação por passo e animações bidirecionais)
 let currentWizardStep = 1;
 
 window.changeWizardStep = function(direction) {
-    // 1. TRAVA DE VALIDAÇÃO POR PASSO (Avanço)
     if (direction > 0) {
         const stepAtual = document.getElementById(`step-${currentWizardStep}`);
         if (stepAtual) {
             const inputs = stepAtual.querySelectorAll('input[required], select[required]');
             let valido = true;
-
             for (const input of inputs) {
                 if (!input.checkValidity()) {
                     input.reportValidity();
@@ -22,15 +18,13 @@ window.changeWizardStep = function(direction) {
             }
             if (!valido) return;
         }
-
-        // Validação específica de seleção de dias no Passo 3
         if (currentWizardStep === 3) {
             const diasMarcados = document.querySelectorAll('input[name="setup-dias"]:checked');
             const warnStep3 = document.getElementById('setup-warning-step3');
-            if (diasMarcados.length < 2) {
+            if (diasMarcados.length < 1) { 
                 if (warnStep3) {
                     warnStep3.style.display = 'block';
-                    warnStep3.innerHTML = '⚠️ <b>Atenção:</b> Selecione pelo menos 2 dias de treino semanal para montar seu macrociclo.';
+                    warnStep3.innerHTML = '  <b>Atenção:</b> Selecione pelo menos 1 dia de treino semanal para montar seu macrociclo.';
                 }
                 return;
             } else if (warnStep3) {
@@ -39,16 +33,11 @@ window.changeWizardStep = function(direction) {
         }
     }
 
-    // 2. DIRECIONALIDADE DAS ANIMAÇÕES
     const stepAtualEl = document.getElementById(`step-${currentWizardStep}`);
     const dotAtualEl = document.getElementById(`dot-${currentWizardStep}`);
-
-    if (stepAtualEl) {
-        stepAtualEl.classList.remove('active', 'slide-forward', 'slide-backward');
-    }
-    if (dotAtualEl) {
-        dotAtualEl.classList.remove('active');
-    }
+    
+    if (stepAtualEl) stepAtualEl.classList.remove('active', 'slide-forward', 'slide-backward');
+    if (dotAtualEl) dotAtualEl.classList.remove('active');
 
     currentWizardStep += direction;
 
@@ -62,16 +51,20 @@ window.changeWizardStep = function(direction) {
     }
 };
 
-// BANNER GLASSMORPHISM E AVALIAÇÃO EM TEMPO REAL NO PASSO 4
 function verificarAvisosPasso4() {
     const elWarning = document.getElementById('setup-warning-step4');
     if (!elWarning) return;
 
-    const volSemanal = parseFloat(document.getElementById('setup-vol-semanal')?.value) || 0;
+    const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal')?.value) || 0);
     const distAlvo = parseFloat(document.getElementById('setup-dist-alvo')?.value) || 10;
     const dataAlvoStr = document.getElementById('setup-data-alvo')?.value;
+    
+    const distAtual = parseFloat(document.getElementById('setup-dist-atual')?.value) || 0;
+    const tempoAtual = parseFloat(document.getElementById('setup-tempo-atual')?.value) || 0;
+    const tipoMeta = document.getElementById('setup-tipo-meta')?.value || 'concluir';
+    const tempoAlvoStr = document.getElementById('setup-tempo-alvo')?.value?.trim() || '';
 
-    if (!dataAlvoStr || volSemanal <= 0) {
+    if (!dataAlvoStr || volSemanal < 0) {
         elWarning.style.display = 'none';
         return;
     }
@@ -84,11 +77,18 @@ function verificarAvisosPasso4() {
     let msgs = [];
 
     if (distAlvo >= 21.1 && volSemanal < distAlvo * fatorPiso) {
-        msgs.push(`🛡️ <b>Plano Blindado Ativo:</b> Seu volume semanal (${volSemanal} km) está abaixo da base sugerida para ${distAlvo} km. O Trote aplicará travas de progressão para prevenir lesões teciduais.`);
+        msgs.push(`  <b>Plano Blindado Ativo:</b> Seu volume semanal (${volSemanal} km) está abaixo da base sugerida para ${distAlvo} km. O Trote aplicará travas de progressão para prevenir lesões teciduais.`);
     }
 
     if (diasAteProva < 21 && diasAteProva > 0) {
-        msgs.push(`⏱️ <b>Polimento Imediato:</b> Sua prova é em menos de 3 semanas (${diasAteProva} dias). O macrociclo iniciará direto na fase de Tapering para descansar sua musculatura.`);
+        msgs.push(`  <b>Polimento Imediato:</b> Sua prova é em menos de 3 semanas (${diasAteProva} dias). O macrociclo iniciará direto na fase de Tapering para descansar sua musculatura.`);
+    }
+
+    if (tipoMeta === 'tempo' && tempoAlvoStr && distAtual > 0 && tempoAtual > 0) {
+        const validacao = CoachPlanner.validarMetaAgressiva(distAtual, tempoAtual, distAlvo, tempoAlvoStr);
+        if (validacao && validacao.agressivo) {
+            msgs.push(`  <b>Meta Desafiadora (${validacao.percentual}% acima do baseline):</b> Pelo seu momento atual, a projeção de Riegel estima <b>${validacao.paceRiegel}/km</b>. Sua meta exige <b>${validacao.paceAlvo}/km</b>. O plano ajustará os ritmos graduais, mas atente-se à fadiga!`);
+        }
     }
 
     if (msgs.length > 0) {
@@ -99,8 +99,7 @@ function verificarAvisosPasso4() {
     }
 }
 
-// OUVINTES DE EVENTOS NOS INPUTS DO PASSO 4 PARA FEEDBACK EM TEMPO REAL
-['setup-vol-semanal', 'setup-dist-alvo', 'setup-data-alvo'].forEach(id => {
+['setup-vol-semanal', 'setup-dist-alvo', 'setup-data-alvo', 'setup-dist-atual', 'setup-tempo-atual', 'setup-tipo-meta', 'setup-tempo-alvo'].forEach(id => {
     const inputEl = document.getElementById(id);
     if (inputEl) {
         inputEl.addEventListener('change', verificarAvisosPasso4);
@@ -108,21 +107,28 @@ function verificarAvisosPasso4() {
     }
 });
 
-// Funções de Modais Globais
-window.abrirModal = function(idModal) { history.pushState({ modalId: idModal }, ''); document.getElementById(idModal).classList.add('active'); };
-window.fecharModal = function(idModal) { document.getElementById(idModal).classList.remove('active'); };
-window.fecharModaisFora = function(event, idModal) { 
-    if (event.target === document.getElementById(idModal)) fecharModal(idModal); 
+window.abrirModal = function(idModal) {
+    history.pushState({ modalId: idModal }, '');
+    document.getElementById(idModal).classList.add('active');
+};
+
+window.fecharModal = function(idModal) {
+    document.getElementById(idModal).classList.remove('active');
+};
+
+window.fecharModaisFora = function(event, idModal) {
+    if (event.target === document.getElementById(idModal)) fecharModal(idModal);
 };
 
 window.abrirTreino = function(id, tipo, distCalculada) {
     abrirModal('modal-treino');
-    document.getElementById('treino-id').value = id; 
+    document.getElementById('treino-id').value = id;
     document.getElementById('treino-edit-mode').value = "false";
     document.getElementById('input-dist').value = distCalculada;
     
     const zonas = app.obterZonasKarvonen();
     let estimativaMin = 45; 
+
     if(zonas[tipo] && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("Máx")) {
         const paceStr = zonas[tipo].pace.split(' ')[0].replace('/km', '');
         const paceSegundos = app._paceParaSegundos(paceStr);
@@ -130,6 +136,7 @@ window.abrirTreino = function(id, tipo, distCalculada) {
     } else {
         estimativaMin = (app.state.atleta.paceBaseSegundos * distCalculada) / 60;
     }
+    
     document.getElementById('input-tempo').value = app._minutosParaTempoString(estimativaMin);
     
     const selectTenis = document.getElementById('input-treino-tenis');
@@ -170,11 +177,12 @@ window.toggleMetaTempoInput = function(valor) {
     if (grp) {
         grp.style.display = (valor === 'tempo') ? 'block' : 'none';
     }
+    verificarAvisosPasso4();
 };
 
 window.resetarApp = function() {
     if(confirm("ATENÇÃO: Deseja destruir todo o seu histórico e recalibrar o motor?")) {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(app.STORAGE_KEY);
         location.reload();
     }
 };
@@ -187,8 +195,8 @@ window.abrirModalReagendar = function(treinoId, dataAtualISO) {
 
 window.abrirEstrategiaProva = function() {
     if(!app.state) return;
-    document.getElementById('est-distancia').value = app.state.prova.distancia;
-    const minutosIdeais = Math.round((app.state.atleta.paceBaseSegundos * app.state.prova.distancia) / 60);
+    document.getElementById('est-distancia').value = app.state.prova.distanciaKm;
+    const minutosIdeais = Math.round((app.state.atleta.paceBaseSegundos * app.state.prova.distanciaKm) / 60);
     const h = Math.floor(minutosIdeais / 60).toString().padStart(2, '0');
     const m = (minutosIdeais % 60).toString().padStart(2, '0');
     document.getElementById('est-tempo').value = `${h}:${m}`;
@@ -204,17 +212,15 @@ window.abrirModalDiasTreino = function() {
 
 window.abrirEditarTreino = function(idRef, dataISO) {
     const log = app.state.treinosRealizados.find(t => t.idReferencia == idRef && t.dataISO === dataISO);
-    const treinoPlano = app.state.plano.find(p => p.id == idRef && p.dataISO === dataISO);
-    if (!log || !treinoPlano) return;
-
+    if (!log) return;
     abrirModal('modal-treino');
     document.getElementById('treino-id').value = idRef;
     document.getElementById('treino-edit-mode').value = "true";
     document.getElementById('input-dist').value = log.dist;
     document.getElementById('input-tempo').value = app._minutosParaTempoString(log.tempoMin || 0);
     document.getElementById('input-fc').value = log.fcMedia || '';
-    document.getElementById('input-rpe').value = log.rpeReal || 6;
-
+    document.getElementById('input-rpe').value = log.rpe || 6;
+    
     const selectTenis = document.getElementById('input-treino-tenis');
     selectTenis.innerHTML = '';
     const tenisAtivos = app.state.atleta.tenis.filter(t => !t.aposentado);
@@ -224,7 +230,6 @@ window.abrirEditarTreino = function(idRef, dataISO) {
     });
 };
 
-// Listeners de Formulários
 document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const nome = document.getElementById('input-tenis-nome').value;
@@ -236,100 +241,111 @@ document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
     atualizarTelasGlobais();
 });
 
-// SUBMISSÃO FLUIDA DO SETUP (SEM POP-UPS NATIVOS E COM VALIDAÇÃO DE DIAS)
 document.getElementById('form-setup')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const dias = Array.from(document.querySelectorAll('input[name="setup-dias"]:checked')).map(el => parseInt(el.value));
-    if (dias.length < 2) {
+    
+    if (dias.length < 1) {
         const warnStep3 = document.getElementById('setup-warning-step3');
         if (warnStep3) {
             warnStep3.style.display = 'block';
-            warnStep3.innerHTML = '⚠️ <b>Atenção:</b> Selecione pelo menos 2 dias de treino semanal para montar seu macrociclo.';
+            warnStep3.innerHTML = '  <b>Atenção:</b> Selecione pelo menos 1 dia de treino semanal para montar seu macrociclo.';
         }
         return;
     }
     
     const dataAlvoStr = document.getElementById('setup-data-alvo').value;
-    const dAlvoValida = parseLocalDate(dataAlvoStr);
-    const diasMinimos = Math.ceil((dAlvoValida - new Date()) / (1000 * 60 * 60 * 24));
+    const diasAteProva = Math.ceil((new Date(dataAlvoStr) - new Date()) / 86400000);
+    if (diasAteProva < 14) return alert("Ciclo mínimo de preparação: 2 semanas.");
+    if (diasAteProva > 365) return alert("O macrociclo máximo suportado é de 1 ano (365 dias).");
+
+    const idade = parseInt(document.getElementById('setup-idade').value) || 30;
+    const fcRepouso = parseInt(document.getElementById('setup-fc-repouso').value) || 60;
+    const fcMaxInput = document.getElementById('setup-fc-max').value;
+    const fcMax = fcMaxInput ? parseInt(fcMaxInput) : (220 - idade);
     
-    if (diasMinimos < 14) {
-        const warnStep4 = document.getElementById('setup-warning-step4');
-        if (warnStep4) {
-            warnStep4.style.display = 'block';
-            warnStep4.innerHTML = '⚠️ <b>Atenção:</b> A data da prova deve estar pelo menos 2 semanas no futuro para permitir um macrociclo seguro.';
-        }
-        return; // Impede a criação do plano quebrado
-    }
+    if (fcRepouso >= fcMax) return alert("A Frequência Cardíaca de Repouso deve ser obrigatoriamente menor que a FC Máxima.");
+
     const distAlvo = parseFloat(document.getElementById('setup-dist-alvo').value) || 10;
-    const volSemanal = parseFloat(document.getElementById('setup-vol-semanal').value) || 20;
+    const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal').value) || 0);
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
     const tempoAlvoStr = document.getElementById('setup-tempo-alvo') ? document.getElementById('setup-tempo-alvo').value.trim() : '';
 
     app.initSetup({
-        nome: document.getElementById('setup-nome').value.trim() || "Atleta", 
-        idade: parseInt(document.getElementById('setup-idade').value) || 30,
+        nome: document.getElementById('setup-nome').value.trim() || "Atleta",
+        idade: idade,
         genero: document.getElementById('setup-genero').value,
         diasSelecionados: dias,
         distAlvo: distAlvo,
-        dataAlvo: dataAlvoStr, 
+        dataAlvo: dataAlvoStr,
         distAtual: parseFloat(document.getElementById('setup-dist-atual').value) || 10,
-        tempoAtual: parseInt(document.getElementById('setup-tempo-atual').value) || 60, 
+        tempoAtual: parseInt(document.getElementById('setup-tempo-atual').value) || 60,
         volSemanal: volSemanal,
-        fcRepouso: parseInt(document.getElementById('setup-fc-repouso').value) || 60,
-        fcMax: document.getElementById('setup-fc-max').value,
+        fcRepouso: fcRepouso,
+        fcMax: fcMax,
         tenisNome: document.getElementById('setup-tenis-nome').value.trim() || "Tênis Principal",
         tenisCat: document.getElementById('setup-tenis-cat').value,
         tipoMeta: tipoMeta,
-        tempoAlvoStr: tempoAlvoStr
+        tempoAlvoStr: tempoAlvoStr,
+        fazMusculacao: document.getElementById('setup-musculacao-faz') ? document.getElementById('setup-musculacao-faz').value === 'sim' : false,
+        divisaoMusculacao: document.getElementById('setup-musculacao-divisao') ? document.getElementById('setup-musculacao-divisao').value : 'ab'
     });
-    
+
     currentWizardStep = 1;
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active', 'slide-forward', 'slide-backward'));
     document.querySelectorAll('.progress-dot').forEach(el => el.classList.remove('active'));
     document.getElementById('step-1')?.classList.add('active');
     document.getElementById('dot-1')?.classList.add('active');
-
     renderizarTelas();
 });
 
 document.getElementById('form-treino')?.addEventListener('submit', (e) => {
     e.preventDefault();
-    const btnSubmit = e.target.querySelector('button[type="submit"]');
-    if (btnSubmit) {
-        btnSubmit.disabled = true;
-        btnSubmit.innerText = "Salvando...";
-    }
+    const idTreino = document.getElementById('treino-id').value;
     const ehEdicao = document.getElementById('treino-edit-mode').value === "true";
     const tempoStr = document.getElementById('input-tempo').value;
     const tempoMin = app._tempoStringParaMinutos(tempoStr);
+    const dist = parseFloat(document.getElementById('input-dist').value);
+    const fc = document.getElementById('input-fc').value;
+    const rpe = parseInt(document.getElementById('input-rpe').value);
+    const tenisId = document.getElementById('input-treino-tenis').value;
 
-    app.processarTreino(
-        document.getElementById('treino-id').value,
-        parseFloat(document.getElementById('input-dist').value),
-        tempoMin,
-        parseInt(document.getElementById('input-fc').value),
-        parseInt(document.getElementById('input-rpe').value),
-        document.getElementById('input-treino-tenis').value,
-        ehEdicao
-    );
+    const treinoPlano = app.state.plano.find(p => p.id == idTreino);
+
+    if (treinoPlano && treinoPlano.tipo === "PROVA ALVO" && !ehEdicao) {
+        app.finalizarProvaEIniciarPosProva(parseInt(idTreino), dist, tempoMin, rpe, tenisId, fc);
+        fecharModal('modal-treino');
+        atualizarTelasGlobais();
+        showToast("  Parabéns pela Prova Concluída! Você entrou na Fase de Recuperação + Baseline.");
+        return;
+    }
+
+    app.processarTreino(idTreino, dist, tempoMin, fc, rpe, tenisId, ehEdicao);
     fecharModal('modal-treino');
     e.target.reset();
     atualizarTelasGlobais();
-
-    const ultimoTreino = app.state.treinosRealizados[app.state.treinosRealizados.length - 1];
-    if(ultimoTreino) {
-        showToast(ehEdicao ? "✏️ Treino atualizado com sucesso!" : `🔥 Treino salvo! Você gerou <strong>${ultimoTreino.tss} TSS</strong>. Seu Fitness subiu!`);
-    }
-
-    if (btnSubmit) {
-            setTimeout(() => {
-                btnSubmit.disabled = false;
-                btnSubmit.innerText = "Salvar Sessão";
-            }, 500);
-        }
-
 });
+
+document.getElementById('form-nova-meta')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const dist = document.getElementById('nova-dist-alvo').value;
+    const dataAlvo = document.getElementById('nova-data-alvo').value;
+    const tipoMeta = document.getElementById('novo-tipo-meta').value;
+    const tempoAlvo = document.getElementById('novo-tempo-alvo').value;
+
+    app.definirNovaMeta(dist, dataAlvo, tipoMeta, tempoAlvo);
+    fecharModal('modal-nova-meta');
+    atualizarTelasGlobais();
+    showToast("  Novo plano gerado com sucesso! Bom treino!");
+});
+
+window.abrirModalNovaMeta = function() {
+    const minDate = new Date();
+    minDate.setDate(minDate.getDate() + 28);
+    const dateInput = document.getElementById('nova-data-alvo');
+    if (dateInput) dateInput.value = getLocalISODate(minDate);
+    abrirModal('modal-nova-meta');
+};
 
 document.getElementById('form-config')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -338,7 +354,7 @@ document.getElementById('form-config')?.addEventListener('submit', (e) => {
     app.state.atleta.fcMax = parseInt(document.getElementById('config-fc-max').value);
     app.state.atleta.paceBaseSegundos = app._paceParaSegundos(document.getElementById('config-pace-base').value);
     
-    app.state.logs.unshift({ data: new Date().toLocaleDateString('pt-BR'), msg: `Perfil Fisiológico atualizado. Zonas reajustadas.` });
+    app.state.logs.unshift({ data: new Date().toLocaleDateString('pt-BR'), msg: `  Perfil Fisiológico atualizado. Zonas reajustadas.` });
     app.saveState();
     fecharModal('modal-config');
     atualizarTelasGlobais();
@@ -348,16 +364,13 @@ document.getElementById('form-reagendar')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const treinoId = parseInt(document.getElementById('reagendar-id').value);
     const novaDataISO = document.getElementById('reagendar-data').value;
-
     const treino = app.state.plano.find(t => t.id === treinoId);
+
     if(treino) {
         const dataAntiga = treino.dataISO;
         treino.dataISO = novaDataISO;
-
-        // Limpa treinos de Descanso antigos na nova data destino se existirem
         app.state.plano = app.state.plano.filter(t => !(t.dataISO === novaDataISO && t.tipo === "Descanso"));
 
-        // Garante que a data de origem fique preenchida com Descanso se ficou sem treinos
         const temOutroTreinoDataAntiga = app.state.plano.some(t => t.dataISO === dataAntiga && t.id !== treinoId);
         if (!temOutroTreinoDataAntiga) {
             app.state.plano.push({
@@ -370,16 +383,16 @@ document.getElementById('form-reagendar')?.addEventListener('submit', (e) => {
                 concluido: false
             });
         }
-
         app.state.plano.sort((a, b) => new Date(a.dataISO) - new Date(b.dataISO));
-
+        
         const formatoBrAntiga = dataAntiga.split('-').reverse().join('/');
         const formatoBrNova = novaDataISO.split('-').reverse().join('/');
+        
         app.state.logs.unshift({ 
             data: new Date().toLocaleDateString('pt-BR'), 
-            msg: `Agenda modificada: O ${treino.tipo} passou do dia ${formatoBrAntiga.substring(0,5)} para ${formatoBrNova.substring(0,5)}.` 
+            msg: `  Agenda modificada: O ${treino.tipo} passou do dia ${formatoBrAntiga.substring(0,5)} para ${formatoBrNova.substring(0,5)}.` 
         });
-
+        
         app.saveState();
         fecharModal('modal-reagendar');
         
@@ -388,7 +401,7 @@ document.getElementById('form-reagendar')?.addEventListener('submit', (e) => {
         atualizarTelasGlobais();
         
         if (typeof showToast === 'function') {
-            showToast("Treino reagendado com sucesso! 🗓️");
+            showToast("  Treino reagendado com sucesso!");
         }
     }
 });
@@ -402,17 +415,14 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
     const partes = tempoStr.split(':');
     const hh = parseInt(partes[0]) || 0;
     const mm = parseInt(partes[1]) || 0;
-    
     const totalSegundos = (hh * 3600) + (mm * 60);
-    
+
     if (isNaN(totalSegundos) || totalSegundos <= 0 || isNaN(dist) || dist <= 0) return;
-    
+
     const paceAlvoSeg = Math.round(totalSegundos / dist);
-    
     document.getElementById('res-pace-alvo').innerHTML = `${app._segundosParaPace(paceAlvoSeg)}<span style="font-size: 1rem; color: var(--text-tertiary);">/km</span>`;
-    
+
     let htmlBlocos = "";
-    
     if (tatic === "negative") {
         const pace1 = app._segundosParaPace(paceAlvoSeg + 10);
         const km1 = (dist * 0.3).toFixed(1);
@@ -427,12 +437,12 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
     } else {
         htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--brand-accent);"><span>Do Km 0 ao Km ${dist}</span><strong>${app._segundosParaPace(paceAlvoSeg)} /km</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Seja um relógio suíço. Crave esse pace a cada quilômetro.</p></div>`;
     }
-    
+
     document.getElementById('res-blocos').innerHTML = htmlBlocos;
-    
+
     const tempoTotalMins = totalSegundos / 60;
     let nutricaoText = "";
-    
+
     if (tempoTotalMins <= 50) {
         nutricaoText = "Prova rápida. Foque apenas em hidratação nos postos de água. Seu glicogênio muscular dá conta do recado.";
     } else if (tempoTotalMins <= 90) {
@@ -441,7 +451,7 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
         const qtdGeis = Math.floor(tempoTotalMins / 40);
         nutricaoText = `Leve <b>${qtdGeis} carbogeis</b>. Tome 1 sachê a cada 40-45 min. Em provas assim longas, considere também cápsulas de sal.`;
     }
-    
+
     document.getElementById('res-nutricao').innerHTML = nutricaoText;
     document.getElementById('resultado-estrategia').style.display = 'block';
 });
@@ -449,15 +459,15 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
 document.getElementById('form-dias-treino')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const dias = Array.from(document.querySelectorAll('input[name="update-dias"]:checked')).map(el => parseInt(el.value));
-    if (dias.length < 2) return alert("Selecione pelo menos 2 dias de treino.");
-
+    
+    if (dias.length < 1) return alert("Selecione pelo menos 1 dia de treino.");
+    
     app.atualizarDiasTreino(dias);
     fecharModal('modal-dias-treino');
     atualizarTelasGlobais();
-    showToast("🗓️ Dias de treino atualizados! O plano futuro foi reorganizado.");
+    showToast("  Dias de treino atualizados! O plano futuro foi reorganizado.");
 });
 
-// Suporte a Navegação e Botão Voltar (Android / PWA)
 window.addEventListener('popstate', () => {
     const modaisAbertos = document.querySelectorAll('.modal-overlay.active');
     if (modaisAbertos.length > 0) {
@@ -465,12 +475,8 @@ window.addEventListener('popstate', () => {
         ultimoModal.classList.remove('active');
         return;
     }
-
     const screenToday = document.getElementById('screen-today');
     if (screenToday && !screenToday.classList.contains('active-screen')) {
         switchTab('screen-today', 'tab-today');
     }
 });
-
-// Inicialização da aplicação
-renderizarTelas();

@@ -147,7 +147,26 @@
                         <label class="ios-day-label" for="d-dom">DOM</label>
                     </div>
                     <div id="setup-warning-step3" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 14px 16px; font-size: 0.85rem;"></div>
-                    
+                    <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div>
+<div style="text-align: center; margin-bottom: 20px;">
+    <h4 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--text-primary);">Treino de Força (Musculação)</h4>
+</div>
+<div class="form-group full-width" style="margin-bottom: 20px;">
+    <label for="setup-musculacao-faz" style="font-size: 0.8rem;">Você faz musculação?</label>
+    <select id="setup-musculacao-faz" onchange="document.getElementById('group-divisao-treino').style.display = this.value === 'sim' ? 'block' : 'none'" style="font-size: 1.1rem; padding: 16px;">
+        <option value="nao" selected>Não, apenas corro</option>
+        <option value="sim">Sim, faço musculação</option>
+    </select>
+</div>
+<div class="form-group full-width" id="group-divisao-treino" style="display:none; margin-bottom: 20px;">
+    <label for="setup-musculacao-divisao" style="font-size: 0.8rem;">Qual a sua divisão de treino?</label>
+    <select id="setup-musculacao-divisao" style="font-size: 1.1rem; padding: 16px;">
+        <option value="ab">AB (Superior / Inferior)</option>
+        <option value="abc">ABC (Push / Pull / Legs)</option>
+        <option value="abcd">ABCD (Por Grupo Muscular)</option>
+        <option value="fullbody">FullBody (Corpo Todo)</option>
+    </select>
+</div>
                     <div class="form-grid" style="margin-top: 40px; gap: 16px;">
                         <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
                         <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
@@ -559,6 +578,47 @@
     </div>
 </div>
 
+<!-- MODAL NOVO OBJETIVO / NOVA PROVA -->
+<div class="modal-overlay" id="modal-nova-meta" onclick="fecharModaisFora(event, 'modal-nova-meta')">
+    <div class="card modal-card" id="card-nova-meta" onclick="event.stopPropagation()">
+        <div style="width: 36px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 0 auto 16px auto;"></div>
+        <h2>🎯 Definir Próxima Prova</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 20px;">
+            Sua base física atual será usada como ponto de partida para recalcular suas zonas e carga do novo macrociclo.
+        </p>
+        <form id="form-nova-meta" class="form-grid">
+            <div class="form-group full-width">
+                <label for="nova-dist-alvo">Distância da Prova</label>
+                <select id="nova-dist-alvo" required style="font-size: 1.1rem; padding: 16px;">
+                    <option value="5">5k</option>
+                    <option value="10">10k</option>
+                    <option value="21.1" selected>Meia Maratona (21k)</option>
+                    <option value="42.2">Maratona (42k)</option>
+                </select>
+            </div>
+            <div class="form-group full-width">
+                <label for="nova-data-alvo">Data da Prova</label>
+                <input type="date" id="nova-data-alvo" required style="font-size: 1.1rem; padding: 16px;">
+            </div>
+            <div class="form-group full-width">
+                <label for="novo-tipo-meta">Meta de Desempenho</label>
+                <select id="novo-tipo-meta" onchange="document.getElementById('group-novo-tempo').style.display = this.value === 'tempo' ? 'block' : 'none'" style="font-size: 1.1rem; padding: 16px;">
+                    <option value="concluir" selected>Apenas Concluir</option>
+                    <option value="tempo">Buscar Tempo Alvo (Sub-X)</option>
+                </select>
+            </div>
+            <div class="form-group full-width" id="group-novo-tempo" style="display:none;">
+                <label for="novo-tempo-alvo">Tempo Alvo (HH:MM:SS)</label>
+                <input type="text" id="novo-tempo-alvo" placeholder="Ex: 01:45:00" style="font-size: 1.1rem; padding: 16px;">
+            </div>
+            <div class="form-group full-width" style="margin-top: 20px;">
+                <button type="submit" class="btn-giant">Gerar Novo Macrociclo 🚀</button>
+                <button type="button" class="btn-reset" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="fecharModal('modal-nova-meta')">Continuar no Modo Manutenção</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script>
@@ -571,7 +631,9 @@
   }
 </script>
 <script src="js/utils.js"></script>
-<script src="js/coach-engine.js"></script>
+<script src="js/coach-physiology.js"></script>
+<script src="js/coach-planner.js"></script>
+<script src="js/coach-state.js"></script>
 <script src="js/ui-render.js"></script>
 <script src="js/ui-events.js"></script>
 </body>

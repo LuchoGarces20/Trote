@@ -241,36 +241,65 @@ document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
     atualizarTelasGlobais();
 });
 
-document.getElementById('form-setup')?.addEventListener('submit', (e) => {
-    e.preventDefault();
+window.finalizarOnboarding = function() {
     const dias = Array.from(document.querySelectorAll('input[name="setup-dias"]:checked')).map(el => parseInt(el.value));
     
     if (dias.length < 1) {
         const warnStep3 = document.getElementById('setup-warning-step3');
         if (warnStep3) {
             warnStep3.style.display = 'block';
-            warnStep3.innerHTML = '  <b>Atenção:</b> Selecione pelo menos 1 dia de treino semanal para montar seu macrociclo.';
+            warnStep3.innerHTML = '⚠️ <b>Atenção:</b> Selecione pelo menos 1 dia de treino semanal para montar seu macrociclo.';
         }
+        currentWizardStep = 3;
+        document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active', 'slide-forward', 'slide-backward'));
+        document.querySelectorAll('.progress-dot').forEach(el => el.classList.remove('active'));
+        document.getElementById('step-3')?.classList.add('active');
+        document.getElementById('dot-3')?.classList.add('active');
         return;
     }
-    
+
     const dataAlvoStr = document.getElementById('setup-data-alvo').value;
+    if (!dataAlvoStr) {
+        alert("Por favor, selecione a data da prova no Passo 4.");
+        currentWizardStep = 4;
+        document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active', 'slide-forward', 'slide-backward'));
+        document.querySelectorAll('.progress-dot').forEach(el => el.classList.remove('active'));
+        document.getElementById('step-4')?.classList.add('active');
+        document.getElementById('dot-4')?.classList.add('active');
+        return;
+    }
+
     const diasAteProva = Math.ceil((new Date(dataAlvoStr) - new Date()) / 86400000);
     if (diasAteProva < 14) return alert("Ciclo mínimo de preparação: 2 semanas.");
     if (diasAteProva > 365) return alert("O macrociclo máximo suportado é de 1 ano (365 dias).");
-
+    
     const idade = parseInt(document.getElementById('setup-idade').value) || 30;
     const fcRepouso = parseInt(document.getElementById('setup-fc-repouso').value) || 60;
     const fcMaxInput = document.getElementById('setup-fc-max').value;
     const fcMax = fcMaxInput ? parseInt(fcMaxInput) : (220 - idade);
-    
-    if (fcRepouso >= fcMax) return alert("A Frequência Cardíaca de Repouso deve ser obrigatoriamente menor que a FC Máxima.");
 
+    if (fcRepouso >= fcMax) return alert("A Frequência Cardíaca de Repouso deve ser obrigatoriamente menor que a FC Máxima.");
+    
     const distAlvo = parseFloat(document.getElementById('setup-dist-alvo').value) || 10;
     const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal').value) || 0);
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
     const tempoAlvoStr = document.getElementById('setup-tempo-alvo') ? document.getElementById('setup-tempo-alvo').value.trim() : '';
+    const tenisNome = document.getElementById('setup-tenis-nome').value.trim();
 
+    if (!tenisNome) {
+        alert("Por favor, informe o modelo do seu tênis no Passo 5.");
+        document.getElementById('setup-tenis-nome').focus();
+        return;
+    }
+
+    const fazMusculacao = document.getElementById('setup-musculacao-faz') ? document.getElementById('setup-musculacao-faz').value === 'sim' : false;
+    
+    // Captura os dias marcados de musculação se o atleta faz musculação
+    const diasMusc = fazMusculacao 
+        ? Array.from(document.querySelectorAll('input[name="setup-dias-musc"]:checked')).map(el => parseInt(el.value))
+        : [];
+
+    // Dispara a inicialização completa do app com o motor reestruturado
     app.initSetup({
         nome: document.getElementById('setup-nome').value.trim() || "Atleta",
         idade: idade,
@@ -283,21 +312,24 @@ document.getElementById('form-setup')?.addEventListener('submit', (e) => {
         volSemanal: volSemanal,
         fcRepouso: fcRepouso,
         fcMax: fcMax,
-        tenisNome: document.getElementById('setup-tenis-nome').value.trim() || "Tênis Principal",
+        tenisNome: tenisNome,
         tenisCat: document.getElementById('setup-tenis-cat').value,
         tipoMeta: tipoMeta,
         tempoAlvoStr: tempoAlvoStr,
-        fazMusculacao: document.getElementById('setup-musculacao-faz') ? document.getElementById('setup-musculacao-faz').value === 'sim' : false,
-        divisaoMusculacao: document.getElementById('setup-musculacao-divisao') ? document.getElementById('setup-musculacao-divisao').value : 'ab'
-    });
+        fazMusculacao: fazMusculacao,
+        divisaoMusculacao: document.getElementById('setup-musculacao-divisao') ? document.getElementById('setup-musculacao-divisao').value : 'ab',
+        diasMusculacao: diasMusc
+        });
 
     currentWizardStep = 1;
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active', 'slide-forward', 'slide-backward'));
     document.querySelectorAll('.progress-dot').forEach(el => el.classList.remove('active'));
     document.getElementById('step-1')?.classList.add('active');
     document.getElementById('dot-1')?.classList.add('active');
+    
     renderizarTelas();
-});
+    showToast("🎉 Macrociclo gerado com sucesso! Bom treino!");
+};
 
 document.getElementById('form-treino')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -479,4 +511,8 @@ window.addEventListener('popstate', () => {
     if (screenToday && !screenToday.classList.contains('active-screen')) {
         switchTab('screen-today', 'tab-today');
     }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    renderizarTelas();
 });

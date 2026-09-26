@@ -118,61 +118,78 @@
                 </div>
 
                 <!-- PASSO 3: AGENDA -->
-                <div class="wizard-step" id="step-3">
-                    <div style="text-align: center; margin-bottom: 32px;">
-                        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">A sua rotina</h3>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Quais dias você vai pra rua?</p>
-                    </div>
+                 <div class="wizard-step" id="step-3">
+                     <div style="text-align: center; margin-bottom: 32px;">
+                         <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">A sua rotina</h3>
+                         <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Quais dias você vai pra rua?</p>
+                     </div>
+                     <div class="ios-days-wrapper">
+                         <input type="checkbox" name="setup-dias" value="1" id="d-seg" class="ios-day-checkbox">
+                         <label class="ios-day-label" for="d-seg">SEG</label>
+                         <input type="checkbox" name="setup-dias" value="2" id="d-ter" class="ios-day-checkbox" checked>
+                         <label class="ios-day-label" for="d-ter">TER</label>
+                         <input type="checkbox" name="setup-dias" value="3" id="d-qua" class="ios-day-checkbox">
+                         <label class="ios-day-label" for="d-qua">QUA</label>
+                         <input type="checkbox" name="setup-dias" value="4" id="d-qui" class="ios-day-checkbox" checked>
+                         <label class="ios-day-label" for="d-qui">QUI</label>
+                         <input type="checkbox" name="setup-dias" value="5" id="d-sex" class="ios-day-checkbox">
+                         <label class="ios-day-label" for="d-sex">SEX</label>
+                         <input type="checkbox" name="setup-dias" value="6" id="d-sab" class="ios-day-checkbox">
+                         <label class="ios-day-label" for="d-sab">SÁB</label>
+                         <input type="checkbox" name="setup-dias" value="0" id="d-dom" class="ios-day-checkbox" checked>
+                         <label class="ios-day-label" for="d-dom">DOM</label>
+                     </div>
+                     <div id="setup-warning-step3" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 14px 16px; font-size: 0.85rem;"></div>
 
-                    <div class="ios-days-wrapper">
-                        <input type="checkbox" name="setup-dias" value="1" id="d-seg" class="ios-day-checkbox">
-                        <label class="ios-day-label" for="d-seg">SEG</label>
+                     <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div> 
+                     
+                     <div style="text-align: center; margin-bottom: 20px;">     
+                         <h4 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--text-primary);">Treino de Força (Musculação)</h4> 
+                     </div> 
 
-                        <input type="checkbox" name="setup-dias" value="2" id="d-ter" class="ios-day-checkbox" checked>
-                        <label class="ios-day-label" for="d-ter">TER</label>
+                     <div class="form-group full-width" style="margin-bottom: 20px;">     
+                         <label for="setup-musculacao-faz" style="font-size: 0.8rem;">Você faz musculação?</label>     
+                         <select id="setup-musculacao-faz" onchange="const val = this.value === 'sim'; document.getElementById('group-divisao-treino').style.display = val ? 'block' : 'none'; document.getElementById('group-dias-musculacao').style.display = val ? 'block' : 'none';" style="font-size: 1.1rem; padding: 16px;">
+    <option value="nao" selected>Não, apenas corro</option>
+    <option value="sim">Sim, faço musculação</option>
+</select>
+                     </div> 
 
-                        <input type="checkbox" name="setup-dias" value="3" id="d-qua" class="ios-day-checkbox">
-                        <label class="ios-day-label" for="d-qua">QUA</label>
+                     <div class="form-group full-width" id="group-divisao-treino" style="display:none; margin-bottom: 20px;">     
+                         <label for="setup-musculacao-divisao" style="font-size: 0.8rem;">Qual a sua divisão de treino?</label>     
+                         <select id="setup-musculacao-divisao" style="font-size: 1.1rem; padding: 16px;">         
+                             <option value="ab">AB (Superior / Inferior)</option>         
+                             <option value="abc">ABC (Push / Pull / Legs)</option>         
+                             <option value="abcd">ABCD (Por Grupo Muscular)</option>         
+                             <option value="fullbody">FullBody (Corpo Todo)</option>     
+                         </select> 
+                     </div> 
 
-                        <input type="checkbox" name="setup-dias" value="4" id="d-qui" class="ios-day-checkbox" checked>
-                        <label class="ios-day-label" for="d-qui">QUI</label>
+                     <div class="form-group full-width" id="group-dias-musculacao" style="display:none; margin-bottom: 20px;">     
+                         <label style="font-size: 0.8rem; margin-bottom: 8px; display: block;">Em quais dias da semana você faz musculação?</label>     
+                         <div class="ios-days-wrapper">         
+                             <input type="checkbox" name="setup-dias-musc" value="1" id="dm-seg" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-seg">SEG</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="2" id="dm-ter" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-ter">TER</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="3" id="dm-qua" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-qua">QUA</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="4" id="dm-qui" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-qui">QUI</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="5" id="dm-sex" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-sex">SEX</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="6" id="dm-sab" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-sab">SÁB</label>         
+                             <input type="checkbox" name="setup-dias-musc" value="0" id="dm-dom" class="ios-day-checkbox">         
+                             <label class="ios-day-label" for="dm-dom">DOM</label>     
+                         </div> 
+                     </div>
 
-                        <input type="checkbox" name="setup-dias" value="5" id="d-sex" class="ios-day-checkbox">
-                        <label class="ios-day-label" for="d-sex">SEX</label>
-
-                        <input type="checkbox" name="setup-dias" value="6" id="d-sab" class="ios-day-checkbox">
-                        <label class="ios-day-label" for="d-sab">SÁB</label>
-
-                        <input type="checkbox" name="setup-dias" value="0" id="d-dom" class="ios-day-checkbox" checked>
-                        <label class="ios-day-label" for="d-dom">DOM</label>
-                    </div>
-                    <div id="setup-warning-step3" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 14px 16px; font-size: 0.85rem;"></div>
-                    <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div>
-<div style="text-align: center; margin-bottom: 20px;">
-    <h4 style="font-family: 'Outfit', sans-serif; font-size: 1.2rem; color: var(--text-primary);">Treino de Força (Musculação)</h4>
-</div>
-<div class="form-group full-width" style="margin-bottom: 20px;">
-    <label for="setup-musculacao-faz" style="font-size: 0.8rem;">Você faz musculação?</label>
-    <select id="setup-musculacao-faz" onchange="document.getElementById('group-divisao-treino').style.display = this.value === 'sim' ? 'block' : 'none'" style="font-size: 1.1rem; padding: 16px;">
-        <option value="nao" selected>Não, apenas corro</option>
-        <option value="sim">Sim, faço musculação</option>
-    </select>
-</div>
-<div class="form-group full-width" id="group-divisao-treino" style="display:none; margin-bottom: 20px;">
-    <label for="setup-musculacao-divisao" style="font-size: 0.8rem;">Qual a sua divisão de treino?</label>
-    <select id="setup-musculacao-divisao" style="font-size: 1.1rem; padding: 16px;">
-        <option value="ab">AB (Superior / Inferior)</option>
-        <option value="abc">ABC (Push / Pull / Legs)</option>
-        <option value="abcd">ABCD (Por Grupo Muscular)</option>
-        <option value="fullbody">FullBody (Corpo Todo)</option>
-    </select>
-</div>
-                    <div class="form-grid" style="margin-top: 40px; gap: 16px;">
-                        <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
-                        <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
-                    </div>
-                </div>
-
+                     <div class="form-grid" style="margin-top: 40px; gap: 16px;">
+                         <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
+                         <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar</button>
+                     </div>
+                 </div>
                 <!-- PASSO 4: PARTIDA E CHEGADA -->
                 <div class="wizard-step" id="step-4">
                     <div style="text-align: center; margin-bottom: 32px;">
@@ -236,7 +253,7 @@
                 <!-- PASSO 5: A GARAGEM -->
                 <div class="wizard-step" id="step-5">
                     <div style="text-align: center; margin-bottom: 32px;">
-                        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">Escolha sua arma</h3>
+                        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">Escolha seu aliado</h3>
                         <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">Qual tênis vai te acompanhar nessa jornada?</p>
                     </div>
 
@@ -256,8 +273,7 @@
                     
                     <div class="form-grid" style="margin-top: 40px; gap: 16px;">
                         <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
-                        <button type="submit" class="btn-giant" style="padding: 20px; font-size: 1.05rem;">Gerar Meu Plano 🚀</button>
-                    </div>
+<button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="finalizarOnboarding()">Gerar Meu Plano 🚀</button>                    </div>
                 </div>
             </form>
         </div>

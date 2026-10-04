@@ -262,9 +262,33 @@ h2 { font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700; ma
 .progress-dot { height: 8px; width: 15%; background: var(--border-subtle); border-radius: var(--radius-pill); transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 .progress-dot.active { background: var(--brand-accent); width: 30%; box-shadow: 0 0 10px var(--brand-glow); }
 
-.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 20px; }
-.form-group { display: flex; flex-direction: column; gap: 8px; }
-.form-group.full-width { grid-column: 1 / -1; }
+.form-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+    gap: 20px; 
+}
+
+.form-group { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px; 
+    min-width: 0; /* Permite que os campos encolham sem estourar a largura do grid */
+}
+
+.form-group.full-width { 
+    grid-column: 1 / -1; 
+}
+
+/* Blindagem para inputs de data no mobile (iOS / WebKit) */
+input[type="date"] {
+    min-width: 0;
+    max-width: 100%;
+}
+
+input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    margin: 0;
+}
 
 label { font-size: 0.75rem; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding-left: 4px; }
 

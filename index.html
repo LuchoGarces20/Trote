@@ -196,68 +196,66 @@
                      </div>
                  </div>
 
-                <!-- PASSO 4: PARTIDA E CHEGADA -->
-                <div class="wizard-step" id="step-4">
-                    <div style="text-align: center; margin-bottom: 32px;">
-                        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">De onde estamos saindo?</h3>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">E para onde vamos.</p>
-                    </div>
+<!-- PASSO 4: PARTIDA E CHEGADA -->
+<div class="wizard-step" id="step-4">
+    <div style="text-align: center; margin-bottom: 32px;">
+        <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.6rem; color: var(--brand-accent); font-weight: 800; letter-spacing: -0.5px;">De onde estamos saindo?</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 4px;">E para onde vamos.</p>
+    </div>
 
-                    <div class="form-group" style="margin-bottom: 20px;">
-                        <label for="setup-vol-semanal" style="font-size: 0.8rem;">Volume Semanal Atual (km)</label>
-                        <input type="number" step="0.1" id="setup-vol-semanal" placeholder="Ex: 20" required style="font-size: 1.1rem; padding: 16px;">
-                    </div>
-                    
-                    <div class="form-grid" style="margin-bottom: 24px;">
-                        <div class="form-group">
-                            <label for="setup-dist-atual" style="font-size: 0.8rem;">Maior Corrida (km)</label>
-                            <input type="number" step="0.1" id="setup-dist-atual" placeholder="Ex: 10" required style="font-size: 1.1rem; padding: 16px;">
-                        </div>
-                        <div class="form-group">
-                            <label for="setup-tempo-atual" style="font-size: 0.8rem;">Tempo Dela (min)</label>
-                            <input type="number" id="setup-tempo-atual" placeholder="Ex: 60" required style="font-size: 1.1rem; padding: 16px;">
-                        </div>
-                    </div>
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label for="setup-vol-semanal" style="font-size: 0.8rem;">Volume Semanal Atual (km)</label>
+        <input type="number" step="0.1" id="setup-vol-semanal" placeholder="Ex: 20" required style="font-size: 1.1rem; padding: 16px;">
+    </div>
+    
+    <div class="form-grid" style="margin-bottom: 24px;">
+        <div class="form-group">
+            <label for="setup-dist-atual" style="font-size: 0.8rem;">Maior Corrida (km)</label>
+            <input type="number" step="0.1" id="setup-dist-atual" placeholder="Ex: 10" required style="font-size: 1.1rem; padding: 16px;">
+        </div>
+        <div class="form-group">
+            <label for="setup-tempo-atual" style="font-size: 0.8rem;">Tempo Dela (min)</label>
+            <input type="number" id="setup-tempo-atual" placeholder="Ex: 60" required style="font-size: 1.1rem; padding: 16px;">
+        </div>
+    </div>
 
-                    <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div>
+    <div style="height: 1px; background: var(--border-subtle); margin: 28px 0;"></div>
 
-                    <div class="form-group full-width" style="margin-bottom: 20px;">
-                        <label for="setup-tipo-meta" style="font-size: 0.8rem;">Objetivo Principal</label>
-                        <select id="setup-tipo-meta" onchange="toggleMetaTempoInput(this.value)" style="font-size: 1.1rem; padding: 16px;">
-                            <option value="concluir" selected>Apenas Concluir (Sem foco em tempo)</option>
-                            <option value="tempo">Buscar Tempo Alvo (Sub-X)</option>
-                        </select>
-                    </div>
+    <div class="form-group full-width" style="margin-bottom: 20px;">
+        <label for="setup-tipo-meta" style="font-size: 0.8rem;">Objetivo Principal</label>
+        <select id="setup-tipo-meta" onchange="toggleMetaTempoInput(this.value)" style="font-size: 1.1rem; padding: 16px;">
+            <option value="concluir" selected>Apenas Concluir (Sem foco em tempo)</option>
+            <option value="tempo">Buscar Tempo Alvo (Sub-X)</option>
+        </select>
+    </div>
 
-                    <div class="form-group full-width" id="group-tempo-alvo" style="display:none; margin-bottom: 20px;">
-                        <label for="setup-tempo-alvo" style="font-size: 0.8rem;">Tempo Alvo (HH:MM:SS)</label>
-                        <input type="text" id="setup-tempo-alvo" placeholder="Ex: 01:50:00" style="font-size: 1.1rem; padding: 16px;">
-                    </div>
+    <div class="form-group full-width" id="group-tempo-alvo" style="display:none; margin-bottom: 20px;">
+        <label for="setup-tempo-alvo" style="font-size: 0.8rem;">Tempo Alvo (HH:MM:SS)</label>
+        <input type="text" id="setup-tempo-alvo" placeholder="Ex: 01:50:00" style="font-size: 1.1rem; padding: 16px;">
+    </div>
 
-                    <div class="form-grid" style="margin-bottom: 36px;">
-                        <div class="form-group">
-                            <label for="setup-dist-alvo" style="font-size: 0.8rem;">Prova Alvo</label>
-                            <select id="setup-dist-alvo" style="font-size: 1.1rem; padding: 16px;">
-                                <option value="5">5k</option>
-                                <option value="10">10k</option>
-                                <option value="21.1" selected>Meia (21k)</option>
-                                <option value="42.2">Maratona</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="setup-data-alvo" style="font-size: 0.8rem;">Data da Prova</label>
-                            <input type="date" id="setup-data-alvo" required style="font-size: 1.1rem; padding: 16px;">
-                        </div>
-                    </div>
+    <div class="form-group full-width" style="margin-bottom: 20px;">
+        <label for="setup-dist-alvo" style="font-size: 0.8rem;">Prova Alvo</label>
+        <select id="setup-dist-alvo" style="font-size: 1.1rem; padding: 16px;">
+            <option value="5">5k</option>
+            <option value="10">10k</option>
+            <option value="21.1" selected>Meia (21k)</option>
+            <option value="42.2">Maratona</option>
+        </select>
+    </div>
 
-                    <div id="setup-warning-step4" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 16px; font-size: 0.85rem;"></div>
+    <div class="form-group full-width" style="margin-bottom: 36px;">
+        <label for="setup-data-alvo" style="font-size: 0.8rem;">Data da Prova</label>
+        <input type="date" id="setup-data-alvo" required style="font-size: 1rem; padding: 14px 16px;">
+    </div>
 
-                    <div class="form-grid" style="margin-top: 32px; gap: 16px;">
-                        <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
-                        <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
-                    </div>
-                </div>
+    <div id="setup-warning-step4" class="insight-card" style="display: none; margin-top: 20px; border-left-color: var(--warning); padding: 16px; font-size: 0.85rem;"></div>
 
+    <div class="form-grid" style="margin-top: 32px; gap: 16px;">
+        <button type="button" class="btn-secondary" style="margin-top: 0; padding: 20px; font-size: 1rem;" onclick="changeWizardStep(-1)">Voltar</button>
+        <button type="button" class="btn-giant" style="padding: 20px; font-size: 1.05rem;" onclick="changeWizardStep(1)">Continuar ➔</button>
+    </div>
+</div>
                 <!-- PASSO 5: A GARAGEM -->
                 <div class="wizard-step" id="step-5">
                     <div style="text-align: center; margin-bottom: 32px;">
@@ -341,16 +339,50 @@
             </div>
         </div>
         
-        <div class="card" style="margin-top: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin-bottom: 0;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"></path><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"></path></svg>
-                    Garagem de Tênis
-                </h2>
-                <button class="btn-icon-small" onclick="abrirModal('modal-tenis')" style="border-color: var(--brand-accent); color: var(--brand-accent);">+ Adicionar</button>
+        <!-- BOTÃO DA GARAGEM DE TÊNIS (DASHBOARD) -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h2 style="margin-bottom: 0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"></path><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"></path></svg>
+        Garagem de Tênis
+    </h2>
+    <button class="btn-icon-small" onclick="abrirAdicionarTenis()" style="border-color: var(--brand-accent); color: var(--brand-accent);">+ Adicionar</button>
+</div>
+
+<!-- MODAL DE TÊNIS ATUALIZADO (CRIAR / EDITAR) -->
+<div class="modal-overlay" id="modal-tenis" onclick="fecharModaisFora(event, 'modal-tenis')">
+    <div class="card modal-card" id="card-tenis" onclick="event.stopPropagation()">
+        <div style="width: 36px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 0 auto 16px auto;"></div>
+        <h2 id="modal-tenis-titulo">Adicionar Tênis</h2>
+        <form id="form-tenis" class="form-grid">
+            <input type="hidden" id="input-tenis-id">
+            <input type="hidden" id="input-tenis-edit-mode" value="false">
+            
+            <div class="form-group full-width">
+                <label for="input-tenis-nome">Modelo / Nome do Tênis</label>
+                <input type="text" id="input-tenis-nome" placeholder="Ex: ASICS Novablast 4" required>
             </div>
-            <div id="ui-garagem" style="display: flex; flex-direction: column; gap: 8px;"></div>
-        </div>
+            
+            <div class="form-group full-width">
+                <label for="input-tenis-cat">Categoria de Uso</label>
+                <select id="input-tenis-cat" required>
+                    <option value="rodagem">Rodagem / Amortecimento (Longões)</option>
+                    <option value="velocidade">Velocidade / Performance (Tiros e Prova)</option>
+                    <option value="versatil">Versátil (Para todos os treinos)</option>
+                </select>
+            </div>
+
+            <div class="form-group full-width">
+                <label for="input-tenis-km">Quilometragem Inicial / Atual (km)</label>
+                <input type="number" step="0.1" min="0" id="input-tenis-km" placeholder="Ex: 0.0 ou 150.0" value="0.0">
+            </div>
+
+            <div class="form-group full-width" style="margin-top: 10px;">
+                <button type="submit" class="btn-primary" id="btn-salvar-tenis">Salvar Tênis</button>
+                <button type="button" class="btn-reset" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="fecharModal('modal-tenis')">Cancelar</button>
+            </div>
+        </form>
+    </div>
+</div>
         
         <div class="card" style="margin-top: 20px; border-left: 4px solid var(--brand-accent);">
             <div style="display: flex; justify-content: space-between; align-items: center;">

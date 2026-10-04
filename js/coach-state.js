@@ -466,18 +466,29 @@ class RunningCoach {
         return CoachPlanner.obterTenisSugerido(tipoTreino, this.state.atleta.tenis);
     }
 
-    adicionarTenis(nome, categoria) {
-        if (!this.state) return;
-        this.state.atleta.tenis.push({
-            id: Date.now(),
-            nome: String(nome || 'Tênis Novo').trim(),
-            categoria: categoria || 'versatil',
-            kmAcumulados: 0.0,
-            aposentado: false
-        });
+    adicionarTenis(nome, categoria, kmInicial = 0) {
+    if (!this.state) return;
+    const km = Math.max(0, parseFloat(kmInicial) || 0);
+    this.state.atleta.tenis.push({
+        id: Date.now(),
+        nome: String(nome || 'Tênis Novo').trim(),
+        categoria: categoria || 'versatil',
+        kmAcumulados: parseFloat(km.toFixed(1)),
+        aposentado: false
+    });
+    this.saveState();
+}
+
+editarTenis(id, nome, categoria, kmAcumulados) {
+    if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
+    const tenis = this.state.atleta.tenis.find(t => t && t.id == id);
+    if (tenis) {
+        tenis.nome = String(nome || tenis.nome).trim();
+        tenis.categoria = categoria || tenis.categoria;
+        tenis.kmAcumulados = Math.max(0, parseFloat(kmAcumulados) || 0);
         this.saveState();
     }
-
+}
     aposentarTenis(id) {
         if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
         const tenis = this.state.atleta.tenis.find(t => t && t.id == id);

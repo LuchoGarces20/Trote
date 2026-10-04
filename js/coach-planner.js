@@ -15,15 +15,14 @@ const CoachPlanner = {
                         .normalize('NFD')
                         .replace(/[\u0300-\u036f]/g, "");
                         
-        return tfLower.includes('inferior') || tfLower.includes('quadriceps') || 
-               tfLower.includes('posterior') || tfLower.includes('full body') || 
+        return tfLower.includes('inferior') || tfLower.includes('quadriceps') ||
+               tfLower.includes('posterior') || tfLower.includes('full body') ||
                tfLower.includes('perna');
     },
 
     gerarPlano(atleta, prova) {
         const atl = atleta || {};
         const prv = prova || {};
-
         const dataInicio = parseLocalDate(atl.dataInicioISO);
         const dataFim = parseLocalDate(prv.dataStr);
         
@@ -32,7 +31,6 @@ const CoachPlanner = {
         
         const totalDias = diffDias;
         const totalSemanas = Math.max(1, Math.ceil(totalDias / 7));
-
         const diasDisponiveis = (Array.isArray(atl.diasTreino) && atl.diasTreino.length >= 1)
             ? [...atl.diasTreino].map(d => parseInt(d, 10)).filter(d => !isNaN(d)).sort((a, b) => a - b)
             : [2, 4, 0];
@@ -49,9 +47,10 @@ const CoachPlanner = {
 
         let plano = [];
         let idCounter = 1;
-        const ehCicloExpress = totalSemanas <= 3;
 
+        const ehCicloExpress = totalSemanas <= 3;
         const maxSemanasProva = distProva <= 5 ? 12 : (distProva <= 10 ? 16 : 52);
+
         let semanasBaseManutencao = 0;
         let baseProgressivaAtiva = false;
         
@@ -123,7 +122,7 @@ const CoachPlanner = {
                     const taxaRampa = (ehIniciantePuro && distProva >= 21) ? 1.055 : (ehIniciantePuro ? 1.07 : 1.045);
                     fatorProgressao = Math.min(tetoFisiologicoProva, Math.pow(taxaRampa, semanasCarga));
                 }
-
+                
                 if (ehFasePlato) {
                     fatorProgressao *= [0.90, 1.05, 1.0][s % 3];
                 }
@@ -140,6 +139,7 @@ const CoachPlanner = {
 
             const volAlvoSemana = Math.max(5.0, volInicialAtleta * fatorProgressao * fatorSemana);
             const numSessoes = Math.max(1, diasDisponiveis.length);
+
             const distLongao = this._calcularDistanciaLongao(s, totalSemanas, distProva, volAlvoSemana, numSessoes, ehCicloExpress);
             
             const volRestante = ehIniciantePuro 
@@ -170,16 +170,13 @@ const CoachPlanner = {
                 }
             }
 
-            // HIERARQUIA DE ALOCAÇÃO DO LONGÃO:
-            // 1. Prioriza Domingo (0)
-            // 2. Segunda opção: Sábado (6)
-            // 3. Fallback (sem fim de semana): Seleciona o último dia de treino disponível na semana
-            let diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 0);
+            // HIERARQUIA DE ALOCAÇÃO DO LONGÃO
+            let diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 0); // Domingo
             if (!diaLongaoObj) {
-                diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 6);
+                diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 6); // Sábado
             }
             if (!diaLongaoObj && diasCorridaDaSemana.length > 0) {
-                diaLongaoObj = diasCorridaDaSemana[diasCorridaDaSemana.length - 1];
+                diaLongaoObj = diasCorridaDaSemana[diasCorridaDaSemana.length - 1]; // Fallback
             }
 
             const diasCandidatosIntensidade = diasCorridaDaSemana.filter(item => item !== diaLongaoObj);
@@ -226,17 +223,25 @@ const CoachPlanner = {
                     tipo = "PROVA ALVO";
                     distBase = distProva / multVol;
                     prescricao = "Dia da Grande Prova! Execute sua tática de ritmo e nutrição.";
-                    estrutura = [`0.5km Aquecimento`, `${distProva}km Ritmo de Prova`];
+                    const aq = parseFloat((distBase * 0.05).toFixed(1));
+                    const pp = parseFloat((distBase - aq).toFixed(1));
+                    estrutura = [`${aq}km Aquecimento`, `${pp}km Ritmo de Prova`];
+
                 } else if (ehDiaDeTreino) {
                     if (ehDiaLongao) {
                         tipo = "Rodagem Leve";
                         distBase = Math.max(3.0, distLongao);
                         prescricao = "Treino longo em Zona 2 para desenvolvimento da eficiência aeróbica e capilarização.";
                         const deveProtegerSNC = acwrAtual > 1.25;
+
                         if ((fase === "Construção Específica" || fase === "Base Específica & Força") && distProva >= 21 && !deveProtegerSNC) {
-                            estrutura = [`${(distBase * 0.6).toFixed(1)}km Z2`, `${(distBase * 0.4).toFixed(1)}km Z3 (Ritmo Prova)`];
+                            const z2 = parseFloat((distBase * 0.6).toFixed(1));
+                            const z3 = parseFloat((distBase - z2).toFixed(1));
+                            estrutura = [`${z2}km Z2`, `${z3}km Z3 (Ritmo Prova)`];
                         } else {
-                            estrutura = [`${(distBase * 0.15).toFixed(1)}km Aquecimento Z1`, `${(distBase * 0.85).toFixed(1)}km Z2 Constante`];
+                            const aq = parseFloat((distBase * 0.15).toFixed(1));
+                            const pp = parseFloat((distBase - aq).toFixed(1));
+                            estrutura = [`${aq}km Aquecimento Z1`, `${pp}km Z2 Constante`];
                         }
                     } else if (diaQualidadeEscolhido === diaIndex) {
                         if (ehCostasComCostas) {
@@ -247,12 +252,19 @@ const CoachPlanner = {
                                 estrutura = [`${distBase.toFixed(1)}km contínuos em Z2`];
                             } else {
                                 prescricao = "Rodagem Z2 com acelerações neurológicas leves no final.";
-                                estrutura = [`${Math.max(1.5, distBase - 0.8).toFixed(1)}km Z2`, "4x 100m Acelerações Z4 (Pausa 60s caminhada)"];
+                                const distAcel = 0.4;
+                                if (distBase <= distAcel) {
+                                    estrutura = [`4x 100m Acelerações Z4 (Pausa 60s caminhada)`];
+                                } else {
+                                    const aq = parseFloat((distBase - distAcel).toFixed(1));
+                                    estrutura = [`${aq}km Z2`, `4x 100m Acelerações Z4 (Pausa 60s caminhada)`];
+                                }
                             }
                         } else if (fase === "Base Geral" || fase === "Base Aeróbica" || fase === "Manutenção Pré-Ciclo") {
                             tipo = "Rodagem Leve";
                             const fatorOndulacaoManutencao = (fase === "Manutenção Pré-Ciclo") ? 1.0 + ((s % 3) - 1) * 0.1 : 1.0;
                             distBase = distSessaoComum * fatorOndulacaoManutencao;
+
                             if (ehIniciantePuro && s < 4) {
                                 prescricao = "Protocolo de transição: Caminhada rápida + Trote leve.";
                                 estrutura = [`${distBase.toFixed(1)}km alternando: 1 min trote Z2 / 1 min caminhada`];
@@ -264,7 +276,15 @@ const CoachPlanner = {
                             tipo = "Limiar Anaeróbico";
                             distBase = Math.max(3.0, distSessaoComum * 0.7);
                             prescricao = "Ativação neuromuscular leve sem acumular fadiga.";
-                            estrutura = ["1.5km Z2", `3x 1km Z4 (Pausa ${p1000}s)`, "1km Z1"];
+                            const pp = 3.0; // 3x 1km
+                            if (distBase <= pp) {
+                                estrutura = [`3x 1km Z4 (Pausa ${p1000}s)`];
+                            } else {
+                                const resto = distBase - pp;
+                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                estrutura = [`${aq}km Z2`, `3x 1km Z4 (Pausa ${p1000}s)`, `${desaq}km Z1`];
+                            }
                         } else {
                             if (conflitoPernas) {
                                 tipo = "Rodagem Leve";
@@ -276,7 +296,14 @@ const CoachPlanner = {
                                     tipo = "Limiar Anaeróbico";
                                     distBase = distSessaoComum;
                                     prescricao = "Tempo Run (Z3/Z4). Foco em eficiência metabólica e tolerância ao lactato.";
-                                    estrutura = ["2km Z2", `${Math.max(3, distBase - 3).toFixed(1)}km Sustentado em Z3/Z4`, "1km Z1"];
+                                    const aq = 2.0;
+                                    const desaq = 1.0;
+                                    if (distBase <= (aq + desaq)) {
+                                         estrutura = [`${distBase.toFixed(1)}km Sustentado em Z3/Z4`];
+                                    } else {
+                                         const pp = parseFloat((distBase - aq - desaq).toFixed(1));
+                                         estrutura = [`${aq}km Z2`, `${pp}km Sustentado em Z3/Z4`, `${desaq}km Z1`];
+                                    }
                                 } else {
                                     tipo = ehFasePlato ? "Limiar Anaeróbico" : "Intervalado VO2";
                                     distBase = distSessaoComum;
@@ -290,24 +317,72 @@ const CoachPlanner = {
                                         const padraoTiro = s % 3;
                                         if (padraoTiro === 0) {
                                             const numReps = Math.min(teto400, Math.max(5, Math.floor(distSessaoComum * 1.2)));
-                                            estrutura = ["2km Z2 (Aquecimento)", `${numReps}x 400m Z5 (Pausa ${p400}s)`, "1.5km Z1 (Desaquecimento)"];
+                                            const distTiros = parseFloat((numReps * 0.4).toFixed(1));
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`${numReps}x 400m Z5 (Pausa ${p400}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 400m Z5 (Pausa ${p400}s)`, `${desaq}km Z1 (Desaquecimento)`];
+                                            }
                                         } else if (padraoTiro === 1) {
                                             const numReps = Math.min(teto800, Math.max(3, Math.floor(distSessaoComum * 0.7)));
-                                            estrutura = ["2km Z2 (Aquecimento)", `${numReps}x 800m Z5 (Pausa ${p800}s)`, "1.5km Z1 (Desaquecimento)"];
+                                            const distTiros = parseFloat((numReps * 0.8).toFixed(1));
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`${numReps}x 800m Z5 (Pausa ${p800}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 800m Z5 (Pausa ${p800}s)`, `${desaq}km Z1 (Desaquecimento)`];
+                                            }
                                         } else {
-                                            estrutura = ["2km Z2 (Aquecimento)", `4x 600m Z5 (Pausa ${p800}s)`, `4x 200m Z5+ Velocidade (Pausa ${p400}s)`, "1km Z1"];
+                                            const distTiros = 3.2; // 4x 600m + 4x 200m
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`4x 600m Z5 (Pausa ${p800}s)`, `4x 200m Z5+ Velocidade (Pausa ${p400}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `4x 600m Z5 (Pausa ${p800}s)`, `4x 200m Z5+ Velocidade (Pausa ${p400}s)`, `${desaq}km Z1`];
+                                            }
                                         }
                                     } else {
                                         const padraoTiro = s % 3;
                                         if (padraoTiro === 0) {
                                             const numReps = Math.min(teto800, Math.max(4, Math.floor(distSessaoComum * 0.7)));
-                                            estrutura = ["2km Z2 (Aquecimento)", `${numReps}x 800m Z5 (Pausa ${p800}s)`, "1.5km Z1 (Desaquecimento)"];
+                                            const distTiros = parseFloat((numReps * 0.8).toFixed(1));
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`${numReps}x 800m Z5 (Pausa ${p800}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 800m Z5 (Pausa ${p800}s)`, `${desaq}km Z1 (Desaquecimento)`];
+                                            }
                                         } else if (padraoTiro === 1) {
                                             const numReps = Math.min(teto1000, Math.max(3, Math.floor(distSessaoComum * 0.5)));
-                                            estrutura = ["2km Z2 (Aquecimento)", `${numReps}x 1000m Z4/Z5 (Pausa ${p1000}s)`, "1.5km Z1 (Desaquecimento)"];
+                                            const distTiros = parseFloat((numReps * 1.0).toFixed(1));
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`${numReps}x 1000m Z4/Z5 (Pausa ${p1000}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 1000m Z4/Z5 (Pausa ${p1000}s)`, `${desaq}km Z1 (Desaquecimento)`];
+                                            }
                                         } else {
                                             const numReps = Math.min(teto400, Math.max(6, Math.floor(distSessaoComum * 1.2)));
-                                            estrutura = ["2km Z2 (Aquecimento)", `${numReps}x 400m Z5 (Pausa ${p400}s)`, "1.5km Z1 (Desaquecimento)"];
+                                            const distTiros = parseFloat((numReps * 0.4).toFixed(1));
+                                            if (distBase <= distTiros) {
+                                                estrutura = [`${numReps}x 400m Z5 (Pausa ${p400}s)`];
+                                            } else {
+                                                const resto = distBase - distTiros;
+                                                const aq = parseFloat((resto * 0.6).toFixed(1));
+                                                const desaq = parseFloat((resto - aq).toFixed(1));
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 400m Z5 (Pausa ${p400}s)`, `${desaq}km Z1 (Desaquecimento)`];
+                                            }
                                         }
                                     }
                                 }
@@ -322,7 +397,14 @@ const CoachPlanner = {
                             : (ehIniciantePuro && s < 4 ? "Protocolo de transição: Caminhada rápida + Trote leve." : "Corrida regenerativa/móvel em Zona 2.");
                         
                         if (tipo.includes("Limiar")) {
-                            estrutura = ["1.5km Z2", `${Math.max(1, distBase - 3).toFixed(1)}km em Z4`, "1.5km Z1"];
+                            const aq = parseFloat((distBase * 0.3).toFixed(1));
+                            const desaq = parseFloat((distBase * 0.3).toFixed(1));
+                            const pp = parseFloat((distBase - aq - desaq).toFixed(1));
+                            if (pp > 0) {
+                                estrutura = [`${aq}km Z2`, `${pp}km em Z4`, `${desaq}km Z1`];
+                            } else {
+                                estrutura = [`${distBase.toFixed(1)}km em Z4`];
+                            }
                         } else if (ehIniciantePuro && s < 4) {
                             estrutura = [`${distBase.toFixed(1)}km alternando: 1 min trote Z2 / 1 min caminhada`];
                         } else {
@@ -343,6 +425,7 @@ const CoachPlanner = {
                 });
             }
         }
+
         return plano;
     },
 
@@ -393,6 +476,7 @@ const CoachPlanner = {
 
         let tetoLongao;
         let pisoLongao;
+
         if (distProva <= 10) {
             tetoLongao = Math.min(21, Math.max(10, volAlvo * 0.35)); 
             pisoLongao = Math.max(3, volAlvo * 0.30);
@@ -437,6 +521,7 @@ const CoachPlanner = {
     rebalancearSemana(plano, treinosRealizados, hojeISO, atleta) {
         if (!Array.isArray(plano)) return [];
         const { start, end } = obterLimitesDaSemana(hojeISO);
+
         const treinosDaSemana = plano.filter(t => t && t.dataISO >= start && t.dataISO <= end);
         const realizadosNaSemana = (Array.isArray(treinosRealizados) ? treinosRealizados : []).filter(t => t && t.dataISO >= start && t.dataISO <= end);
         
@@ -475,12 +560,14 @@ const CoachPlanner = {
 
         const strTipo = String(tipoTreino || '');
         const ehVelocidade = strTipo.includes("Intervalado") || strTipo.includes("Tiros") || strTipo.includes("Tempo") || strTipo.includes("PROVA");
+        
         const categoriaAlvo = ehVelocidade ? 'velocidade' : 'rodagem';
-
         const ideal = disponiveis.find(t => t.categoria === categoriaAlvo);
         if (ideal) return ideal.id;
+
         const versatil = disponiveis.find(t => t.categoria === 'versatil');
         if (versatil) return versatil.id;
+
         return disponiveis[0].id;
     },
 
@@ -512,6 +599,7 @@ const CoachPlanner = {
             const volSemanalAlvo = Math.max(8.0, (parseFloat(atl.volSemanal) || 20) * fatorVol);
             const numSessoes = Math.max(1, diasDisponiveis.length);
             const distPorSessao = parseFloat((volSemanalAlvo / numSessoes).toFixed(1));
+
             let sessoesAlocadasSemana = 0;
 
             for (let d = 0; d < 7; d++) {
@@ -520,8 +608,8 @@ const CoachPlanner = {
                 dataAtual.setDate(dataInicio.getDate() + diaIndex);
                 const dataISO = getLocalISODate(dataAtual);
                 const diaDaSemana = dataAtual.getDay();
-
                 const conflitoPernasHoje = this._ehTreinoPernas(dataISO, atl);
+
                 let tipo = "Descanso";
                 let distBase = 0;
                 let prescricao = "Repouso e flushing metabólico.";
@@ -529,6 +617,7 @@ const CoachPlanner = {
 
                 if (diasDisponiveis.includes(diaDaSemana)) {
                     sessoesAlocadasSemana++;
+
                     if (ehFaseRecovery && s === 0 && (distReal >= 21) && sessoesAlocadasSemana > 2) {
                         tipo = "Descanso";
                         distBase = 0;
@@ -547,7 +636,14 @@ const CoachPlanner = {
                             tipo = "Limiar Anaeróbico";
                             distBase = distPorSessao;
                             prescricao = "Manutenção de potência aeróbica e VO2 sem acumular fadiga excessiva.";
-                            estrutura = ["1.5km Z2", `${Math.max(1, distBase - 2.5).toFixed(1)}km Z4 Sustentado`, "1km Z1"];
+                            const aq = 1.5;
+                            const desaq = 1.0;
+                            if (distBase <= (aq + desaq)) {
+                                 estrutura = [`${distBase.toFixed(1)}km Z4 Sustentado`];
+                            } else {
+                                 const pp = parseFloat((distBase - aq - desaq).toFixed(1));
+                                 estrutura = [`${aq}km Z2`, `${pp}km Z4 Sustentado`, `${desaq}km Z1`];
+                            }
                         } else {
                             tipo = "Rodagem Leve";
                             distBase = distPorSessao;
@@ -555,6 +651,7 @@ const CoachPlanner = {
                             estrutura = [`${distBase}km contínuos em Z2`];
                         }
                     }
+
                     distBase = (ehFaseRecovery && s < 2 && distReal >= 42) ? Math.min(distBase, 5.0) : distBase;
                 }
 

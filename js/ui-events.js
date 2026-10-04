@@ -109,22 +109,102 @@ function verificarAvisosPasso4() {
     }
 });
 
+// ==========================================
+// GERENCIAMENTO NATIVO DE MODAIS & NAVEGAÇÃO ANDROID
+// ==========================================
 window.abrirModal = function(idModal) {
     const modal = document.getElementById(idModal);
-    if (modal) {
-        try { history.pushState({ modalId: idModal }, ''); } catch (e) {}
+    if (modal && !modal.classList.contains('active')) {
         modal.classList.add('active');
+        try { 
+            history.pushState({ modalId: idModal }, ''); 
+        } catch (e) {}
     }
 };
 
 window.fecharModal = function(idModal) {
     const modal = document.getElementById(idModal);
-    if (modal) modal.classList.remove('active');
+    if (modal && modal.classList.contains('active')) {
+        modal.classList.remove('active');
+        const card = modal.querySelector('.modal-card');
+        if (card) card.style.transform = '';
+        if (history.state && history.state.modalId === idModal) {
+            history.back();
+        }
+    }
 };
 
 window.fecharModaisFora = function(event, idModal) {
     if (event.target === document.getElementById(idModal)) fecharModal(idModal);
 };
+
+// CONTROLE DO BOTÃO "VOLTAR" NATIVO DO ANDROID (POPSTATE)
+window.addEventListener('popstate', () => {
+    const modaisAbertos = document.querySelectorAll('.modal-overlay.active');
+    if (modaisAbertos.length > 0) {
+        const ultimoModal = modaisAbertos[modaisAbertos.length - 1];
+        ultimoModal.classList.remove('active');
+        const card = ultimoModal.querySelector('.modal-card');
+        if (card) card.style.transform = '';
+        return;
+    }
+
+    const screenToday = document.getElementById('screen-today');
+    if (screenToday && !screenToday.classList.contains('active-screen')) {
+        if (typeof switchTab === 'function') switchTab('screen-today', 'tab-today');
+    }
+});
+
+// ==========================================
+// GESTO DESLIZAR PARA BAIHO (SWIPE TO DISMISS)
+// ==========================================
+function inicializarGestoDeslizarModais() {
+    document.querySelectorAll('.modal-card').forEach(card => {
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+
+        card.addEventListener('touchstart', (e) => {
+            if (card.scrollTop <= 0) {
+                startY = e.touches[0].clientY;
+                isDragging = true;
+                card.style.transition = 'none';
+            }
+        }, { passive: true });
+
+        card.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+
+            if (deltaY > 0 && card.scrollTop <= 0) {
+                card.style.transform = `translateY(${deltaY}px)`;
+                if (e.cancelable) e.preventDefault();
+            } else {
+                isDragging = false;
+                card.style.transform = '';
+            }
+        }, { passive: false });
+
+        card.addEventListener('touchend', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            const deltaY = currentY - startY;
+            card.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+
+            if (deltaY > 110) {
+                const modalOverlay = card.closest('.modal-overlay');
+                if (modalOverlay) {
+                    fecharModal(modalOverlay.id);
+                }
+            } else {
+                card.style.transform = '';
+            }
+            startY = 0;
+            currentY = 0;
+        }, { passive: true });
+    });
+}
 
 // CONTROLE DO SELETOR VISUAL DE sRPE
 window.selecionarSRPE = function(val) {
@@ -195,6 +275,71 @@ window.abrirTreino = function(id, tipo, distCalculada) {
         }
     }
 };
+
+// ==========================================
+// AÇÕES DE GARAGEM DE TÊNIS (ADICIONAR / EDITAR / APOSENTAR)
+// ==========================================
+window.abrirAdicionarTenis = function() {
+    const inputId = document.getElementById('input-tenis-id');
+    const inputEdit = document.getElementById('input-tenis-edit-mode');
+    const inputNome = document.getElementById('input-tenis-nome');
+    const inputCat = document.getElementById('input-tenis-cat');
+    const inputKm = document.getElementById('input-tenis-km');
+    const modalTitulo = document.getElementById('modal-tenis-titulo');
+
+    if (inputId) inputId.value = '';
+    if (inputEdit) inputEdit.value = "false";
+    if (inputNome) inputNome.value = '';
+    if (inputCat) inputCat.value = 'versatil';
+    if (inputKm) inputKm.value = '0.0';
+    if (modalTitulo) modalTitulo.innerText = "Adicionar Tênis";
+
+    abrirModal('modal-tenis');
+};
+
+window.abrirEditarTenis = function(id) {
+    if (!app || !app.state || !Array.isArray(app.state.atleta?.tenis)) return;
+    const tenis = app.state.atleta.tenis.find(t => t && t.id == id);
+    if (!tenis) return;
+
+    const inputId = document.getElementById('input-tenis-id');
+    const inputEdit = document.getElementById('input-tenis-edit-mode');
+    const inputNome = document.getElementById('input-tenis-nome');
+    const inputCat = document.getElementById('input-tenis-cat');
+    const inputKm = document.getElementById('input-tenis-km');
+    const modalTitulo = document.getElementById('modal-tenis-titulo');
+
+    if (inputId) inputId.value = tenis.id;
+    if (inputEdit) inputEdit.value = "true";
+    if (inputNome) inputNome.value = tenis.nome || '';
+    if (inputCat) inputCat.value = tenis.categoria || 'versatil';
+    if (inputKm) inputKm.value = tenis.kmAcumulados || 0;
+    if (modalTitulo) modalTitulo.innerText = "Editar Tênis";
+
+    abrirModal('modal-tenis');
+};
+
+document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('input-tenis-id')?.value;
+    const ehEdicao = document.getElementById('input-tenis-edit-mode')?.value === "true";
+    const nome = document.getElementById('input-tenis-nome')?.value;
+    const cat = document.getElementById('input-tenis-cat')?.value;
+    const km = parseFloat(document.getElementById('input-tenis-km')?.value) || 0;
+
+    if (ehEdicao) {
+        if (app && typeof app.editarTenis === 'function') {
+            app.editarTenis(id, nome, cat, km);
+        }
+    } else {
+        if (app && typeof app.adicionarTenis === 'function') {
+            app.adicionarTenis(nome, cat, km);
+        }
+    }
+    fecharModal('modal-tenis');
+    e.target.reset();
+    if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
+});
 
 window.aposentarTenis = function(id) {
     if (confirm("Deseja aposentar este tênis? Os KMs ficarão salvos, mas ele sairá das opções de treino.")) {
@@ -298,19 +443,6 @@ window.abrirEditarTreino = function(idRef, dataISO) {
         });
     }
 };
-
-document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const nome = document.getElementById('input-tenis-nome')?.value;
-    const cat = document.getElementById('input-tenis-cat')?.value;
-
-    if (app && typeof app.adicionarTenis === 'function') {
-        app.adicionarTenis(nome, cat);
-    }
-    fecharModal('modal-tenis');
-    e.target.reset();
-    if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
-});
 
 window.finalizarOnboarding = function() {
     const dias = Array.from(document.querySelectorAll('input[name="setup-dias"]:checked'))
@@ -596,20 +728,7 @@ document.getElementById('form-dias-treino')?.addEventListener('submit', (e) => {
     if (typeof showToast === 'function') showToast("📅 Dias de treino atualizados! O plano futuro foi reorganizado.");
 });
 
-window.addEventListener('popstate', () => {
-    const modaisAbertos = document.querySelectorAll('.modal-overlay.active');
-    if (modaisAbertos.length > 0) {
-        const ultimoModal = modaisAbertos[modaisAbertos.length - 1];
-        ultimoModal.classList.remove('active');
-        return;
-    }
-
-    const screenToday = document.getElementById('screen-today');
-    if (screenToday && !screenToday.classList.contains('active-screen')) {
-        if (typeof switchTab === 'function') switchTab('screen-today', 'tab-today');
-    }
-});
-
 document.addEventListener('DOMContentLoaded', () => {
+    inicializarGestoDeslizarModais();
     if (typeof renderizarTelas === 'function') renderizarTelas();
 });

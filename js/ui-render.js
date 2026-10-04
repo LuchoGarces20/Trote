@@ -42,7 +42,7 @@ window.switchTab = function(screenId, tabId) {
     if (screenId === 'screen-dashboard') {
         renderizarGrafico();
     }
-};
+}
 
 function renderizarRacePredictor() {
     const elContainer = document.getElementById('ui-race-predictor');
@@ -80,7 +80,7 @@ function renderizarTimelineFases() {
     listaFases.forEach(f => {
         const ehAtual = f.treinos.some(t => t && t.dataISO === hojeISO);
         const ehConcluido = f.treinos.every(t => t && (t.concluido || t.dataISO < hojeISO));
-
+        
         html += `
             <div class="phase-card ${ehAtual ? 'active-phase' : ''}">
                 <span class="phase-chip ${ehAtual ? 'status-atual' : (ehConcluido ? 'status-concluido' : 'status-futuro')}">${ehAtual ? 'Fase Atual' : (ehConcluido ? 'Concluída' : 'Futura')}</span>
@@ -106,6 +106,7 @@ function renderizarGrafico() {
     
     const inicioIdx = Math.max(0, idxBase - 14);
     const fimIdx = Math.min(historicoCompleto.length, idxBase + 30);
+
     const dadosJanela = historicoCompleto.slice(inicioIdx, fimIdx);
 
     const labels = dadosJanela.map(h => {
@@ -279,8 +280,9 @@ function renderizarCardHoje(hojeISO, zonas) {
         const tipo = treinoHoje.tipo || "Rodagem";
         const ehTimeTrial = tipo.includes("Time Trial") || tipo.includes("Teste");
         const intensityKey = ehTimeTrial ? "timetrial" : (tipo.includes("Intervalado") || tipo.includes("Tiros") || tipo.includes("Subidas") ? "z5-tiros" : (tipo.includes("Tempo") || tipo.includes("Cruise") || tipo.includes("Fartlek") || tipo === "PROVA ALVO" ? "z3-z4" : "z1-z2"));
+        
         uiHoje.setAttribute('data-intensity', intensityKey);
-
+        
         const badgeValidation = ehTimeTrial ? `<div class="badge-timetrial">DIA DE VALIDAÇÃO</div>` : '';
         const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
         const distCalculada = parseFloat(((parseFloat(treinoHoje.distanciaBase) || 0) * multVol).toFixed(1));
@@ -346,6 +348,7 @@ function renderizarMetricasFisiologicas() {
 
     const elCtl = document.getElementById('val-ctl');
     const elAtl = document.getElementById('val-atl');
+    
     if (elCtl) elCtl.innerText = Math.round(ctl);
     if (elAtl) elAtl.innerText = Math.round(atl);
 
@@ -384,9 +387,11 @@ function renderizarMetricasFisiologicas() {
     if (insightEl) {
         const numAcwr = parseFloat(acwr) || 0;
         let insightMsg = "<strong>Coach Trote:</strong> Mantenha a consistência. Seu corpo está respondendo perfeitamente ao plano.";
+        
         if (numAcwr > 1.5) insightMsg = "<strong>Coach Trote:</strong> Seu corpo acumulou muita fadiga rápido demais (ACWR alto). Reduza a intensidade e foque em recovery.";
         else if (tsb > 10) insightMsg = "<strong>Coach Trote:</strong> Você está fresco e recuperado! Excelente janela metabólica para quebrar recordes no treino de velocidade.";
         else if (tsb < -20) insightMsg = "<strong>Coach Trote:</strong> Fadiga alta detectada. Priorize sono, hidratação e respeite rigorosamente a zona do seu próximo regenerativo.";
+        
         insightEl.innerHTML = insightMsg;
     }
 }
@@ -394,7 +399,6 @@ function renderizarMetricasFisiologicas() {
 function renderizarGaragem() {
     const uiGaragem = document.getElementById('ui-garagem');
     if (!uiGaragem || !app || !app.state) return;
-
     const tenisList = Array.isArray(app.state.atleta.tenis) ? app.state.atleta.tenis : [];
     if (tenisList.length === 0) {
         uiGaragem.innerHTML = '<p class="empty-state-text">Adicione seus tênis para rastrear o desgaste.</p>';
@@ -404,23 +408,27 @@ function renderizarGaragem() {
             if (!t) return '';
             const km = parseFloat(t.kmAcumulados) || 0;
             const warning = km > 600 && !t.aposentado ? '<span title="Desgaste alto!" style="margin-left:6px;">⚠️</span>' : '';
-            const actionBtn = t.aposentado ? `<span class="shoe-badge-aposentado">Aposentado</span>` : `<button class="btn-icon-small btn-icon-small-garagem" onclick="aposentarTenis(${t.id})">Aposentar</button>`;
-            
+            const actionBtns = t.aposentado 
+                ? `<span class="shoe-badge-aposentado">Aposentado</span>` 
+                : `<div style="display:flex; gap:6px; margin-top:8px;">
+                     <button class="btn-icon-small btn-icon-small-edit" onclick="abrirEditarTenis(${t.id})">Editar</button>
+                     <button class="btn-icon-small" onclick="aposentarTenis(${t.id})">Aposentar</button>
+                   </div>`;
+                        
             return `
             <div class="shoe-card ${t.aposentado ? 'shoe-card-aposentado' : ''}">
-                <div class="shoe-info"><strong>${t.nome || 'Tênis'} ${warning}</strong><span>${catMap[t.categoria] || t.categoria}</span>${actionBtn}</div>
+                <div class="shoe-info"><strong>${t.nome || 'Tênis'} ${warning}</strong><span>${catMap[t.categoria] || t.categoria}</span>${actionBtns}</div>
                 <div class="shoe-km">${km.toFixed(1)}<span>KM</span></div>
             </div>`;
         }).join('');
-
+        
         const todosDesgastados = tenisList.every(t => t && (t.aposentado || (parseFloat(t.kmAcumulados) || 0) >= 600));
         if (todosDesgastados) {
             htmlGaragem += `
                 <div class="insight-card" style="border-left-color: var(--danger); margin-top:12px; font-size:0.85rem;">
-                    <strong>Atenção:</strong> Todos os seus tênis cadastrados estão aposentados ou ultrapassaram o limite crítico de 600 km. Cadastre um novo par para prevenir impacto excessivo nas articulações.
+                    <strong>Atenção:</strong> Todos os seus tênis cadastrados estão aposentados ou ultrapassaram o limite crítico de 600 km.
                 </div>`;
         }
-
         uiGaragem.innerHTML = htmlGaragem;
     }
 }
@@ -442,7 +450,6 @@ function renderizarHistorico() {
             const tenisList = Array.isArray(app.state.atleta.tenis) ? app.state.atleta.tenis : [];
             const tr = tenisList.find(x => x && x.id == t.tenisId);
             const nomeTenisLog = tr ? `<br><span class="log-tenis-historico">👟 ${tr.nome}</span>` : '';
-
             const distNum = parseFloat(t.dist) || 0;
 
             return `
@@ -475,7 +482,13 @@ function renderizarForecastCalendario(hojeISO, zonas) {
     const planoList = Array.isArray(app.state.plano) ? app.state.plano : [];
     const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
 
-    planoList.filter(t => t && t.dataISO >= hojeISO).slice(0, 7).forEach(treino => {
+    // Traz o limite da semana de SEGUNDA a DOMINGO para exibir histórico e futuro no mesmo local
+    const { start: weekStart, end: weekEnd } = obterLimitesDaSemana(hojeISO);
+    
+    // Filtramos para a semana visual atual
+    const treinosExibidos = planoList.filter(t => t && t.dataISO >= weekStart && t.dataISO <= weekEnd);
+
+    treinosExibidos.forEach(treino => {
         const ehDescanso = treino.tipo === "Descanso";
         const parts = treino.dataISO.split('-');
         const d = parts[2] || '01';
@@ -490,8 +503,23 @@ function renderizarForecastCalendario(hojeISO, zonas) {
             htmlEstrutura = `<div class="workout-structure-list">` + treino.estrutura.map(b => `<div class="workout-structure-item">${b}</div>`).join('') + `</div>`;
         }
 
-        let iconStatus = treino.concluido ? `<div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div>` : `<svg class="day-chevron" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
-        let actionBtn = !treino.concluido ? `<button class="btn-outline-small" onclick="event.stopPropagation(); abrirModalReagendar(${treino.id}, '${treino.dataISO}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Mudar Dia do Treino</button>` : '';
+        let iconStatus = treino.concluido 
+            ? `<div><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg></div>` 
+            : `<svg class="day-chevron" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+        let actionBtn = '';
+        if (treino.concluido) {
+            const log = app.state.treinosRealizados.find(t => t && t.dataISO === treino.dataISO);
+            const idRef = log ? log.idReferencia : '';
+            actionBtn = `<button class="btn-outline-small" onclick="event.stopPropagation(); abrirEditarTreino('${idRef}', '${treino.dataISO}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> Editar Treino</button>`;
+        } else if (treino.dataISO <= hojeISO) {
+            actionBtn = `<button class="btn-outline-small" style="color: var(--brand-accent); border-color: var(--brand-accent);" onclick="event.stopPropagation(); abrirTreino(${treino.id}, '${treino.tipo}', ${distCalculada})">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> Registrar Treino</button>`;
+        } else {
+            actionBtn = `<button class="btn-outline-small" onclick="event.stopPropagation(); abrirModalReagendar(${treino.id}, '${treino.dataISO}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> Mudar Dia</button>`;
+        }
 
         const lembreteForca = app.obterTreinoForca(treino.dataISO);
         let badgeForca = lembreteForca ? `<div class="badge-forca">Musculação: ${lembreteForca}</div>` : '';
@@ -502,7 +530,7 @@ function renderizarForecastCalendario(hojeISO, zonas) {
                 <div class="day-info">
                     <div class="day-date">${treino.dataISO === hojeISO ? 'HOJE' : `${d}/${m}`}</div>
                     <div class="day-title">${treino.tipo}</div>
-                    <div class="day-details">${treino.fasePlano || 'Ciclo Ativo'} ${!ehDescanso ? ` • Zonas: ${fcAlvo}` : ''}</div>
+                    <div class="day-details">${treino.fasePlano || 'Ciclo Ativo'} ${!ehDescanso ? ` | Zonas: ${fcAlvo}` : ''}</div>
                 </div>
                 ${iconStatus}
             </div>
@@ -521,6 +549,7 @@ const SEMANAS_POR_PAGINA = 4;
 
 window.abrirPlanoCompleto = function() {
     if (!app || !app.state) return;
+    
     semanasCarregadasMacrociclo = 0;
     
     const container = document.getElementById('container-plano-completo');
@@ -542,10 +571,11 @@ window.abrirPlanoCompleto = function() {
     
     carregarMaisSemanasMacrociclo();
     abrirModal('modal-plano');
-};
+}
 
 function carregarMaisSemanasMacrociclo() {
     if (!app || !app.state || !Array.isArray(app.state.plano)) return;
+    
     const listaDiv = document.getElementById('lista-macrociclo');
     const btnCarregar = document.getElementById('btn-carregar-mais-macro');
     if (!listaDiv) return;
@@ -575,8 +605,20 @@ function carregarMaisSemanasMacrociclo() {
         const d = parts[2] || '01';
         const m = parts[1] || '01';
 
+        // Lógica de ação unificada na lista completa (Registrar, Editar ou Reagendar)
+        let clickAction = '';
+        if (treino.concluido) {
+            const log = app.state.treinosRealizados.find(t => t && t.dataISO === treino.dataISO);
+            const idRef = log ? log.idReferencia : '';
+            clickAction = `onclick="fecharModal('modal-plano'); abrirEditarTreino('${idRef}', '${treino.dataISO}')"`;
+        } else if (treino.dataISO <= getLocalISODate()) {
+            clickAction = `onclick="fecharModal('modal-plano'); abrirTreino(${treino.id}, '${treino.tipo}', ${treino.distanciaBase || 0})"`;
+        } else {
+            clickAction = `onclick="fecharModal('modal-plano'); abrirModalReagendar(${treino.id}, '${treino.dataISO}')"`;
+        }
+
         htmlChunk += `
-            <div class="day-card macro-day-card ${treino.concluido ? 'done' : ''}">
+            <div class="day-card macro-day-card ${treino.concluido ? 'done' : ''}" ${clickAction} style="cursor: pointer;" title="Clique para gerenciar este treino">
                 <div class="day-card-header">
                     <div class="day-info">
                         <div class="day-date">${d}/${m}</div>
@@ -586,6 +628,7 @@ function carregarMaisSemanasMacrociclo() {
             </div>`;
 
         treinosDaSemana++;
+
         if (treinosDaSemana === 7 || i === diaFinal - 1 || i === diasTotaisDoPlano - 1) {
             htmlChunk += `</div>`;
             semanaAtualNum++;

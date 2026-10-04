@@ -45,13 +45,12 @@ window.changeWizardStep = function(direction) {
 
     const proxStepEl = document.getElementById(`step-${currentWizardStep}`);
     const proxDotEl = document.getElementById(`dot-${currentWizardStep}`);
-
     if (proxStepEl && proxDotEl) {
         const animClass = direction > 0 ? 'slide-forward' : 'slide-backward';
         proxStepEl.className = `wizard-step active ${animClass}`;
         proxDotEl.classList.add('active');
     }
-};
+}
 
 function verificarAvisosPasso4() {
     const elWarning = document.getElementById('setup-warning-step4');
@@ -74,16 +73,17 @@ function verificarAvisosPasso4() {
     const dAlvo = parseLocalDate(dataAlvoStr);
     const diasAteProva = Math.ceil((dAlvo - new Date()) / (1000 * 60 * 60 * 24));
     const semanasDisponiveis = Math.max(1, Math.floor(diasAteProva / 7));
+
     const fatorPiso = semanasDisponiveis >= 20 ? 0.35 : (semanasDisponiveis >= 12 ? 0.45 : 0.60);
-
+    
     let msgs = [];
-
+    
     if (distAlvo >= 21.1 && volSemanal < distAlvo * fatorPiso) {
-        msgs.push(`⚠️ <b>Plano Blindado Ativo:</b> Seu volume semanal (${volSemanal} km) está abaixo da base sugerida para ${distAlvo} km. O Trote aplicará travas de progressão para prevenir lesões teciduais.`);
+        msgs.push(`🛡️ <b>Plano Blindado Ativo:</b> Seu volume semanal (${volSemanal} km) está abaixo da base sugerida para ${distAlvo} km. O Trote aplicará travas de progressão para prevenir lesões teciduais.`);
     }
 
     if (diasAteProva < 21 && diasAteProva > 0) {
-        msgs.push(`⏳ <b>Polimento Imediato:</b> Sua prova é em menos de 3 semanas (${diasAteProva} dias). O macrociclo iniciará direto na fase de Tapering para descansar sua musculatura.`);
+        msgs.push(`⚠️ <b>Polimento Imediato:</b> Sua prova é em menos de 3 semanas (${diasAteProva} dias). O macrociclo iniciará direto na fase de Tapering para descansar sua musculatura.`);
     }
 
     if (tipoMeta === 'tempo' && tempoAlvoStr && distAtual > 0 && tempoAtual > 0) {
@@ -110,45 +110,76 @@ function verificarAvisosPasso4() {
 });
 
 // ==========================================
-// GERENCIAMENTO NATIVO DE MODAIS & NAVEGAÇÃO ANDROID
+// GERENCIAMENTO NATIVO DE MODAIS (SLIDE DOWN GARANTIDO & SCROLL TOP)
 // ==========================================
 window.abrirModal = function(idModal) {
-    const modal = document.getElementById(idModal);
-    if (modal && !modal.classList.contains('active')) {
+    const modal = typeof idModal === 'string' ? document.getElementById(idModal) : idModal;
+    if (!modal) return;
+    
+    modal.classList.remove('is-closing');
+    modal.style.opacity = '';
+    const card = modal.querySelector('.modal-card');
+    if (card) {
+        card.style.transform = '';
+        card.style.transition = '';
+    }
+    
+    if (!modal.classList.contains('active')) {
         modal.classList.add('active');
-        try { 
-            history.pushState({ modalId: idModal }, ''); 
-        } catch (e) {}
+        try { history.pushState({ modalId: modal.id || idModal }, ''); } catch (e) {}
     }
-};
+}
 
-window.fecharModal = function(idModal) {
-    const modal = document.getElementById(idModal);
-    if (modal && modal.classList.contains('active')) {
-        modal.classList.remove('active');
-        const card = modal.querySelector('.modal-card');
-        if (card) card.style.transform = '';
-        if (history.state && history.state.modalId === idModal) {
-            history.back();
-        }
+window.fecharModal = function(idModal, skipHistoryBack = false) {
+    const modal = typeof idModal === 'string' ? document.getElementById(idModal) : idModal;
+    if (!modal || !modal.classList.contains('active') || modal.classList.contains('is-closing')) return;
+    
+    modal.classList.add('is-closing');
+    const card = modal.querySelector('.modal-card');
+    if (card) {
+        card.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+        card.style.transform = 'translateY(100%)';
     }
-};
+    modal.style.transition = 'opacity 0.3s ease';
+    modal.style.opacity = '0';
+    
+    const modalId = modal.id;
+    
+    setTimeout(() => {
+        modal.classList.remove('active', 'is-closing');
+        modal.style.opacity = '';
+        if (card) {
+            card.style.transform = '';
+            card.style.transition = '';
+        }
+
+        // [NOVA FUNCIONALIDADE] Deslizar para o topo (plano de treino do dia)
+        const screenToday = document.getElementById('screen-today');
+        if (screenToday && screenToday.classList.contains('active-screen')) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }, 300);
+
+    if (!skipHistoryBack && history.state && history.state.modalId === modalId) {
+        history.back();
+    }
+}
 
 window.fecharModaisFora = function(event, idModal) {
-    if (event.target === document.getElementById(idModal)) fecharModal(idModal);
-};
+    if (event.target === document.getElementById(idModal)) {
+        fecharModal(idModal);
+    }
+}
 
 // CONTROLE DO BOTÃO "VOLTAR" NATIVO DO ANDROID (POPSTATE)
 window.addEventListener('popstate', () => {
-    const modaisAbertos = document.querySelectorAll('.modal-overlay.active');
+    const modaisAbertos = document.querySelectorAll('.modal-overlay.active:not(.is-closing)');
     if (modaisAbertos.length > 0) {
         const ultimoModal = modaisAbertos[modaisAbertos.length - 1];
-        ultimoModal.classList.remove('active');
-        const card = ultimoModal.querySelector('.modal-card');
-        if (card) card.style.transform = '';
+        fecharModal(ultimoModal, true);
         return;
     }
-
+    
     const screenToday = document.getElementById('screen-today');
     if (screenToday && !screenToday.classList.contains('active-screen')) {
         if (typeof switchTab === 'function') switchTab('screen-today', 'tab-today');
@@ -156,54 +187,62 @@ window.addEventListener('popstate', () => {
 });
 
 // ==========================================
-// GESTO DESLIZAR PARA BAIHO (SWIPE TO DISMISS)
+// GESTO DESLIZAR PARA BAIXO (SWIPE TO DISMISS DELEGAÇÃO GLOBAL)
 // ==========================================
 function inicializarGestoDeslizarModais() {
-    document.querySelectorAll('.modal-card').forEach(card => {
-        let startY = 0;
-        let currentY = 0;
-        let isDragging = false;
+    let activeCard = null;
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
 
-        card.addEventListener('touchstart', (e) => {
-            if (card.scrollTop <= 0) {
-                startY = e.touches[0].clientY;
-                isDragging = true;
-                card.style.transition = 'none';
-            }
-        }, { passive: true });
+    document.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.modal-card');
+        if (!card) return;
+        
+        if (card.scrollTop <= 0) {
+            activeCard = card;
+            startY = e.touches[0].clientY;
+            currentY = startY;
+            isDragging = true;
+            activeCard.style.transition = 'none';
+        }
+    }, { passive: true });
 
-        card.addEventListener('touchmove', (e) => {
-            if (!isDragging) return;
-            currentY = e.touches[0].clientY;
-            const deltaY = currentY - startY;
-
-            if (deltaY > 0 && card.scrollTop <= 0) {
-                card.style.transform = `translateY(${deltaY}px)`;
-                if (e.cancelable) e.preventDefault();
-            } else {
-                isDragging = false;
-                card.style.transform = '';
-            }
-        }, { passive: false });
-
-        card.addEventListener('touchend', () => {
-            if (!isDragging) return;
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging || !activeCard) return;
+        currentY = e.touches[0].clientY;
+        const deltaY = currentY - startY;
+        
+        if (deltaY > 0 && activeCard.scrollTop <= 0) {
+            activeCard.style.transform = `translateY(${deltaY}px)`;
+            if (e.cancelable) e.preventDefault();
+        } else if (deltaY < 0) {
             isDragging = false;
-            const deltaY = currentY - startY;
-            card.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+            activeCard.style.transform = '';
+        }
+    }, { passive: false });
 
-            if (deltaY > 110) {
-                const modalOverlay = card.closest('.modal-overlay');
-                if (modalOverlay) {
-                    fecharModal(modalOverlay.id);
-                }
-            } else {
-                card.style.transform = '';
+    document.addEventListener('touchend', () => {
+        if (!isDragging || !activeCard) return;
+        isDragging = false;
+        
+        const deltaY = currentY - startY;
+        const card = activeCard;
+        activeCard = null;
+
+        if (deltaY > 100) {
+            const modalOverlay = card.closest('.modal-overlay');
+            if (modalOverlay) {
+                fecharModal(modalOverlay.id);
             }
-            startY = 0;
-            currentY = 0;
-        }, { passive: true });
-    });
+        } else {
+            card.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+            card.style.transform = '';
+        }
+        
+        startY = 0;
+        currentY = 0;
+    }, { passive: true });
 }
 
 // CONTROLE DO SELETOR VISUAL DE sRPE
@@ -211,7 +250,7 @@ window.selecionarSRPE = function(val) {
     const valNum = parseInt(val, 10) || 6;
     const inputRpe = document.getElementById('input-rpe');
     if (inputRpe) inputRpe.value = valNum;
-
+    
     document.querySelectorAll('.srpe-btn').forEach(btn => {
         if (parseInt(btn.getAttribute('data-rpe'), 10) === valNum) {
             btn.classList.add('active');
@@ -219,7 +258,7 @@ window.selecionarSRPE = function(val) {
             btn.classList.remove('active');
         }
     });
-};
+}
 
 window.abrirTreino = function(id, tipo, distCalculada) {
     abrirModal('modal-treino');
@@ -231,7 +270,7 @@ window.abrirTreino = function(id, tipo, distCalculada) {
 
     if (elId) elId.value = id;
     if (elEdit) elEdit.value = "false";
-
+    
     const distNum = Math.max(0.01, parseFloat(distCalculada) || 0.01);
     if (elDist) elDist.value = distNum;
 
@@ -249,7 +288,6 @@ window.abrirTreino = function(id, tipo, distCalculada) {
 
     if (elTempo) elTempo.value = app._minutosParaTempoString(estimativaMin);
 
-    // Ajustar sRPE sugerido de acordo com o tipo
     let rpeSugerido = 6;
     if (tipo.includes("Regenerativo")) rpeSugerido = 2;
     else if (tipo.includes("Rodagem") || tipo.includes("Leve")) rpeSugerido = 4;
@@ -263,7 +301,6 @@ window.abrirTreino = function(id, tipo, distCalculada) {
         selectTenis.innerHTML = '';
         const tenisList = Array.isArray(app.state?.atleta?.tenis) ? app.state.atleta.tenis : [];
         const tenisAtivos = tenisList.filter(t => t && !t.aposentado);
-
         if (tenisAtivos.length === 0) {
             selectTenis.innerHTML = '<option value="">Nenhum tênis ativo</option>';
         } else {
@@ -274,7 +311,7 @@ window.abrirTreino = function(id, tipo, distCalculada) {
             });
         }
     }
-};
+}
 
 // ==========================================
 // AÇÕES DE GARAGEM DE TÊNIS (ADICIONAR / EDITAR / APOSENTAR)
@@ -295,7 +332,7 @@ window.abrirAdicionarTenis = function() {
     if (modalTitulo) modalTitulo.innerText = "Adicionar Tênis";
 
     abrirModal('modal-tenis');
-};
+}
 
 window.abrirEditarTenis = function(id) {
     if (!app || !app.state || !Array.isArray(app.state.atleta?.tenis)) return;
@@ -317,7 +354,7 @@ window.abrirEditarTenis = function(id) {
     if (modalTitulo) modalTitulo.innerText = "Editar Tênis";
 
     abrirModal('modal-tenis');
-};
+}
 
 document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -336,6 +373,7 @@ document.getElementById('form-tenis')?.addEventListener('submit', (e) => {
             app.adicionarTenis(nome, cat, km);
         }
     }
+
     fecharModal('modal-tenis');
     e.target.reset();
     if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
@@ -348,7 +386,7 @@ window.aposentarTenis = function(id) {
             if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
         }
     }
-};
+}
 
 window.abrirConfig = function() {
     if (!app || !app.state || !app.state.atleta) return;
@@ -363,7 +401,7 @@ window.abrirConfig = function() {
     if (pace) pace.value = app._segundosParaPace(app.state.atleta.paceBaseSegundos || 330);
 
     abrirModal('modal-config');
-};
+}
 
 window.toggleMetaTempoInput = function(valor) {
     const grp = document.getElementById('group-tempo-alvo');
@@ -371,14 +409,14 @@ window.toggleMetaTempoInput = function(valor) {
         grp.style.display = (valor === 'tempo') ? 'block' : 'none';
     }
     verificarAvisosPasso4();
-};
+}
 
 window.resetarApp = function() {
     if (confirm("ATENÇÃO: Deseja destruir todo o seu histórico e recalibrar o motor?")) {
         if (app) app.resetState();
         location.reload();
     }
-};
+}
 
 window.abrirModalReagendar = function(treinoId, dataAtualISO) {
     const elId = document.getElementById('reagendar-id');
@@ -386,14 +424,14 @@ window.abrirModalReagendar = function(treinoId, dataAtualISO) {
     if (elId) elId.value = treinoId;
     if (elData) elData.value = dataAtualISO || getLocalISODate();
     abrirModal('modal-reagendar');
-};
+}
 
 window.abrirEstrategiaProva = function() {
     if (!app || !app.state || !app.state.prova) return;
     const elDist = document.getElementById('est-distancia');
     const elTempo = document.getElementById('est-tempo');
     const elRes = document.getElementById('resultado-estrategia');
-
+    
     const dist = Math.max(1, parseFloat(app.state.prova.distanciaKm) || 10);
     if (elDist) elDist.value = dist;
 
@@ -401,16 +439,17 @@ window.abrirEstrategiaProva = function() {
     const minutosIdeais = Math.round((baseSeg * dist) / 60);
     const h = Math.floor(minutosIdeais / 60).toString().padStart(2, '0');
     const m = (minutosIdeais % 60).toString().padStart(2, '0');
-    if (elTempo) elTempo.value = `${h}:${m}`;
 
+    if (elTempo) elTempo.value = `${h}:${m}`;
     if (elRes) elRes.style.display = 'none';
+
     abrirModal('modal-estrategia');
-};
+}
 
 window.abrirModalDiasTreino = function() {
     if (!app || !app.state) return;
     abrirModal('modal-dias-treino');
-};
+}
 
 window.abrirEditarTreino = function(idRef, dataISO) {
     if (!app || !app.state || !Array.isArray(app.state.treinosRealizados)) return;
@@ -442,7 +481,7 @@ window.abrirEditarTreino = function(idRef, dataISO) {
             selectTenis.innerHTML += `<option value="${t.id}" ${isSelected}>${t.nome}</option>`;
         });
     }
-};
+}
 
 window.finalizarOnboarding = function() {
     const dias = Array.from(document.querySelectorAll('input[name="setup-dias"]:checked'))
@@ -489,8 +528,8 @@ window.finalizarOnboarding = function() {
     const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal')?.value) || 10);
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
     const tempoAlvoStr = document.getElementById('setup-tempo-alvo') ? document.getElementById('setup-tempo-alvo').value.trim() : '';
-    const tenisNome = (document.getElementById('setup-tenis-nome')?.value || '').trim();
 
+    const tenisNome = (document.getElementById('setup-tenis-nome')?.value || '').trim();
     if (!tenisNome) {
         alert("Por favor, informe o modelo do seu tênis no Passo 5.");
         document.getElementById('setup-tenis-nome')?.focus();
@@ -531,7 +570,7 @@ window.finalizarOnboarding = function() {
 
     renderizarTelas();
     if (typeof showToast === 'function') showToast("🚀 Macrociclo gerado com sucesso! Bom treino!");
-};
+}
 
 document.getElementById('form-treino')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -549,7 +588,7 @@ document.getElementById('form-treino')?.addEventListener('submit', (e) => {
         app.finalizarProvaEIniciarPosProva(parseInt(idTreino, 10), dist, tempoMin, rpe, tenisId, fc);
         fecharModal('modal-treino');
         atualizarTelasGlobais();
-        if (typeof showToast === 'function') showToast("🏆 Parabéns pela Prova Concluída! Você entrou na Fase de Recuperação + Baseline.");
+        if (typeof showToast === 'function') showToast("🏁 Parabéns pela Prova Concluída! Você entrou na Fase de Recuperação + Baseline.");
         return;
     }
 
@@ -580,12 +619,11 @@ window.abrirModalNovaMeta = function() {
     const dateInput = document.getElementById('nova-data-alvo');
     if (dateInput) dateInput.value = getLocalISODate(minDate);
     abrirModal('modal-nova-meta');
-};
+}
 
 document.getElementById('form-config')?.addEventListener('submit', (e) => {
     e.preventDefault();
     if (!app || !app.state || !app.state.atleta) return;
-
     const gen = document.getElementById('config-genero')?.value;
     const rep = parseInt(document.getElementById('config-fc-repouso')?.value, 10);
     const max = parseInt(document.getElementById('config-fc-max')?.value, 10);
@@ -599,7 +637,6 @@ document.getElementById('form-config')?.addEventListener('submit', (e) => {
     if (Array.isArray(app.state.logs)) {
         app.state.logs.unshift({ data: formatarDataHoje(), msg: `⚙️ Perfil Fisiológico atualizado. Zonas reajustadas.` });
     }
-
     app.saveState();
     fecharModal('modal-config');
     if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
@@ -611,13 +648,14 @@ document.getElementById('form-reagendar')?.addEventListener('submit', (e) => {
     const novaDataISO = document.getElementById('reagendar-data')?.value;
 
     if (!app || !app.state || !Array.isArray(app.state.plano)) return;
+    
     const treino = app.state.plano.find(t => t && t.id === treinoId);
     if (treino) {
         const dataAntiga = treino.dataISO;
         treino.dataISO = novaDataISO;
-
+        
         app.state.plano = app.state.plano.filter(t => t && !(t.dataISO === novaDataISO && t.tipo === "Descanso"));
-
+        
         const temOutroTreinoDataAntiga = app.state.plano.some(t => t && t.dataISO === dataAntiga && t.id !== treinoId);
         if (!temOutroTreinoDataAntiga) {
             app.state.plano.push({
@@ -630,28 +668,25 @@ document.getElementById('form-reagendar')?.addEventListener('submit', (e) => {
                 concluido: false
             });
         }
-
+        
         app.state.plano.sort((a, b) => new Date(a.dataISO) - new Date(b.dataISO));
-
+        
         const formatoBrAntiga = dataAntiga.split('-').reverse().join('/');
         const formatoBrNova = novaDataISO.split('-').reverse().join('/');
-
+        
         if (Array.isArray(app.state.logs)) {
             app.state.logs.unshift({ 
                 data: formatarDataHoje(), 
                 msg: `📅 Agenda modificada: O ${treino.tipo} passou do dia ${formatoBrAntiga.substring(0,5)} para ${formatoBrNova.substring(0,5)}.` 
             });
         }
-
         app.saveState();
         fecharModal('modal-reagendar');
-
         app.rebalancearSemana(novaDataISO);
         app.recalcularLinhaDoTempo();
         if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
-
         if (typeof showToast === 'function') {
-            showToast("📅 Treino reagendado com sucesso!");
+            showToast("✅ Treino reagendado com sucesso!");
         }
     }
 });
@@ -671,26 +706,45 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
 
     const paceAlvoSeg = Math.round(totalSegundos / dist);
     const elResPace = document.getElementById('res-pace-alvo');
-    if (elResPace) {
-        elResPace.innerHTML = `${app._segundosParaPace(paceAlvoSeg)}<span style="font-size: 1rem; color: var(--text-tertiary);">/km</span>`;
+    
+    // Suporte ao "Velocidade Alvo" / "Pace Alvo"
+    const isEsteira = app && app.state && app.state.modoEsteira;
+
+    // Ajusta título superior do Modal Estratégia
+    const elSubtitulo = document.querySelector('#resultado-estrategia > div > div:first-child');
+    if (elSubtitulo) {
+        elSubtitulo.innerText = isEsteira ? 'Velocidade Média Necessária' : 'Pace Médio Necessário';
     }
+
+    if (elResPace) {
+        if (isEsteira) {
+            const vel = (3600 / paceAlvoSeg).toFixed(1);
+            elResPace.innerHTML = `${vel}<span style="font-size: 1rem; color: var(--text-tertiary);"> km/h</span>`;
+        } else {
+            elResPace.innerHTML = `${app._segundosParaPace(paceAlvoSeg)}<span style="font-size: 1rem; color: var(--text-tertiary);">/km</span>`;
+        }
+    }
+
+    const formatarRitmo = (segundos) => {
+        return isEsteira ? (3600 / segundos).toFixed(1) + ' km/h' : app._segundosParaPace(segundos) + ' /km';
+    };
 
     let htmlBlocos = "";
     if (tatic === "negative") {
-        const pace1 = app._segundosParaPace(paceAlvoSeg + 10);
+        const pace1 = formatarRitmo(paceAlvoSeg + 10);
         const km1 = (dist * 0.3).toFixed(1);
-        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--text-tertiary);"><span>Do km 0 ao ${km1} (Conservador)</span><strong>${pace1} /km</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Segure a emoção. Poupe glicogênio e deixe os apressados passarem (+10s do alvo).</p></div>`;
+        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--text-tertiary);"><span>Do km 0 ao ${km1} (Conservador)</span><strong>${pace1}</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Segure a emoção. Poupe glicogênio e deixe os apressados passarem (+10s do alvo).</p></div>`;
 
-        const pace2 = app._segundosParaPace(paceAlvoSeg);
+        const pace2 = formatarRitmo(paceAlvoSeg);
         const km2 = (dist * 0.75).toFixed(1);
-        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--warning);"><span>Do km ${km1} ao ${km2} (Cruzeiro)</span><strong>${pace2} /km</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Entre no ritmo. Concentre-se na respiração e economize energia.</p></div>`;
+        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--warning);"><span>Do km ${km1} ao ${km2} (Cruzeiro)</span><strong>${pace2}</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Entre no ritmo. Concentre-se na respiração e economize energia.</p></div>`;
 
-        const pace3 = app._segundosParaPace(paceAlvoSeg - 12);
-        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--brand-accent); background: var(--brand-glow);"><span>Do km ${km2} até a Chegada (Ataque)</span><strong>${pace3} /km</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Negative split! Deixe tudo na pista, você tem energia de sobra (-12s do alvo).</p></div>`;
+        const pace3 = formatarRitmo(paceAlvoSeg - 12);
+        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--brand-accent); background: var(--brand-glow);"><span>Do km ${km2} até a Chegada (Ataque)</span><strong>${pace3}</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Negative split! Deixe tudo na pista, você tem energia de sobra (-12s do alvo).</p></div>`;
     } else {
-        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--brand-accent);"><span>Do Km 0 ao Km ${dist}</span><strong>${app._segundosParaPace(paceAlvoSeg)} /km</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Seja um relógio suíço. Crave esse pace a cada quilômetro.</p></div>`;
+        htmlBlocos += `<div class="expanded-data-box" style="border-left: 3px solid var(--brand-accent);"><span>Do Km 0 ao Km ${dist}</span><strong>${formatarRitmo(paceAlvoSeg)}</strong><p style="font-size:0.75rem; color:var(--text-secondary); margin-top:4px;">Seja um relógio suíço. Crave esse ritmo a cada quilômetro.</p></div>`;
     }
-
+    
     const elBlocos = document.getElementById('res-blocos');
     if (elBlocos) elBlocos.innerHTML = htmlBlocos;
 
@@ -704,7 +758,7 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
         const qtdGeis = Math.floor(tempoTotalMins / 40);
         nutricaoText = `Leve <b>${qtdGeis} carbogeis</b>. Tome 1 sachê a cada 40-45 min. Em provas assim longas, considere também cápsulas de sal.`;
     }
-
+    
     const elNutricao = document.getElementById('res-nutricao');
     if (elNutricao) elNutricao.innerHTML = nutricaoText;
 
@@ -725,7 +779,7 @@ document.getElementById('form-dias-treino')?.addEventListener('submit', (e) => {
     }
     fecharModal('modal-dias-treino');
     if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
-    if (typeof showToast === 'function') showToast("📅 Dias de treino atualizados! O plano futuro foi reorganizado.");
+    if (typeof showToast === 'function') showToast("✅ Dias de treino atualizados! O plano futuro foi reorganizado.");
 });
 
 document.addEventListener('DOMContentLoaded', () => {

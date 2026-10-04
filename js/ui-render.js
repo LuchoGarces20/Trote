@@ -5,23 +5,25 @@
 function renderizarTelas() {
     const navTabs = document.getElementById('nav-tabs');
     const btnConfig = document.getElementById('btn-config');
-
+    
     if (!app || !app.state) {
         if (navTabs) navTabs.classList.remove('active');
         if (btnConfig) btnConfig.style.display = 'none';
+        
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
         const screenSetup = document.getElementById('screen-setup');
         if (screenSetup) screenSetup.classList.add('active-screen');
-
+        
         const minDate = new Date(); minDate.setDate(minDate.getDate() + 28);
         const setupDataAlvo = document.getElementById('setup-data-alvo');
         if (setupDataAlvo) setupDataAlvo.value = getLocalISODate(minDate);
     } else {
         if (navTabs) navTabs.classList.add('active');
         if (btnConfig) btnConfig.style.display = 'flex';
+        
         switchTab('screen-today', 'tab-today');
         atualizarTelasGlobais();
-
+        
         const simSlider = document.getElementById('sim-slider');
         if (simSlider) {
             simSlider.value = app.state.atleta.paceBaseSegundos || 330;
@@ -55,7 +57,7 @@ function renderizarRacePredictor() {
         <div class="expanded-data-box" style="text-align: center;">
             <span>${p.prova || '-'}</span>
             <strong class="predictor-value">${p.tempoEstimado || '-'}</strong>
-            <div class="predictor-pace">Pace: ${p.paceMedio || '-'}</div>
+            <div class="predictor-pace">${app.state.modoEsteira ? 'Velocidade' : 'Pace'}: ${p.paceMedio || '-'}</div>
         </div>
     `).join('');
 }
@@ -65,7 +67,7 @@ function renderizarTimelineFases() {
     
     const hojeISO = getLocalISODate();
     const fasesMap = {};
-
+    
     app.state.plano.forEach(t => {
         if (!t) return;
         const fase = t.fasePlano || 'Base Aeróbica';
@@ -76,7 +78,7 @@ function renderizarTimelineFases() {
 
     const listaFases = Object.values(fasesMap);
     let html = `<div class="macro-card-standalone"><div class="macro-timeline-title">Jornada do Macrociclo</div><div class="macro-timeline-scroll">`;
-
+    
     listaFases.forEach(f => {
         const ehAtual = f.treinos.some(t => t && t.dataISO === hojeISO);
         const ehConcluido = f.treinos.every(t => t && (t.concluido || t.dataISO < hojeISO));
@@ -88,7 +90,6 @@ function renderizarTimelineFases() {
                 <span class="phase-card-subtitle">${f.treinos.length} sessões</span>
             </div>`;
     });
-
     return html + `</div></div>`;
 }
 
@@ -106,7 +107,6 @@ function renderizarGrafico() {
     
     const inicioIdx = Math.max(0, idxBase - 14);
     const fimIdx = Math.min(historicoCompleto.length, idxBase + 30);
-
     const dadosJanela = historicoCompleto.slice(inicioIdx, fimIdx);
 
     const labels = dadosJanela.map(h => {
@@ -121,10 +121,10 @@ function renderizarGrafico() {
     gradient.addColorStop(1, 'rgba(14, 165, 233, 0.0)');
 
     if (window.cargaChart) window.cargaChart.destroy();
-
+    
     Chart.defaults.color = '#A1A1AA';
     Chart.defaults.font.family = "'Inter', sans-serif";
-
+    
     window.cargaChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -197,7 +197,7 @@ function _atualizarBotaoEsteira() {
     if (!btnEsteira || !iconEsteira || !app || !app.state) return;
 
     const eEsteira = !!app.state.modoEsteira;
-    iconEsteira.innerText = eEsteira ? '🏃' : '🛣️';
+    iconEsteira.innerText = eEsteira ? '🏠' : '🛣️'; 
     btnEsteira.setAttribute('title', eEsteira ? 'Modo Esteira (km/h)' : 'Modo Rua (Pace)');
 
     if (eEsteira) {
@@ -207,13 +207,28 @@ function _atualizarBotaoEsteira() {
         btnEsteira.style.borderColor = '';
         btnEsteira.style.background = '';
     }
+
+    // Altera Textos Dinamicamente (Pace -> Velocidade) no Simulador
+    const simDesc = document.querySelector('.simulator-container')?.previousElementSibling;
+    if (simDesc) {
+        simDesc.innerText = eEsteira ? "Arraste para estimar a resposta cardíaca de uma velocidade na esteira." : "Arraste para estimar a resposta cardíaca de um pace na rua.";
+    }
+
+    const simUnit = document.getElementById('sim-pace-unit');
+    if (simUnit) simUnit.innerText = eEsteira ? 'km/h' : '/km';
+
+    // Dispara atualização do slider para ajustar conversões numéricas
+    const simSlider = document.getElementById('sim-slider');
+    if (simSlider && typeof app.atualizarSimulador === 'function') {
+        app.atualizarSimulador(simSlider.value);
+    }
 }
 
 function _gerarHtmlProgressoSemanal(hojeISO) {
     const { start: weekStart, end: weekEnd } = obterLimitesDaSemana(hojeISO);
     let volPlanejadoSemana = 0;
     const multVol = parseFloat(app.state.atleta?.multiplicadorVolume) || 1.0;
-
+    
     if (Array.isArray(app.state.plano)) {
         app.state.plano.forEach(t => {
             if (t && t.dataISO >= weekStart && t.dataISO <= weekEnd) {
@@ -232,7 +247,7 @@ function _gerarHtmlProgressoSemanal(hojeISO) {
     }
 
     const percentualVolume = volPlanejadoSemana > 0 ? Math.min(100, Math.max(0, (volRealizadoSemana / volPlanejadoSemana) * 100)) : 0;
-
+    
     setTimeout(() => {
         const fill = document.querySelector('.weekly-progress-fill');
         if (fill) fill.style.width = `${percentualVolume.toFixed(1)}%`;
@@ -292,7 +307,7 @@ function renderizarCardHoje(hojeISO, zonas) {
         let htmlEstrutura = '';
         if (Array.isArray(treinoHoje.estrutura) && treinoHoje.estrutura.length > 0) {
             htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">Execução Estruturada</div>` + 
-                treinoHoje.estrutura.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
+                 treinoHoje.estrutura.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
         }
 
         const lembreteForca = app.obterTreinoForca(hojeISO);
@@ -313,12 +328,16 @@ function renderizarCardHoje(hojeISO, zonas) {
             <div class="today-date">${formatarDataHoje()}</div>
             <h2 class="today-type" style="margin-top:4px;">${tipo}</h2>
             <div class="hero-distance-huge">${distCalculada}<span>km</span></div>
+
             <div class="today-metrics">
                 <div class="today-metrics-card primary-metric"><div class="metric-tag">Target</div><div class="metric-label">${rotuloRitmo} Alvo</div><strong class="metric-val">${infoZona.pace || '-'}</strong></div>
                 <div class="today-metrics-card secondary-metric"><div class="metric-label">Zona & FC Esperada</div><strong class="metric-val">${infoZona.fc || '-'}</strong></div>
             </div>
+
             <div class="guia-sensacao-box"><strong>Guia de Sensação:</strong><br>${infoZona.guia || ''}</div>
+            
             ${htmlEstrutura}${hintForca}${hintTenis}
+            
             <p class="today-desc today-desc-small">"${treinoHoje.prescricao || ''}"</p>
             
             <!-- ATALHO REGISTRO RÁPIDO (1-TAP LOG) -->
@@ -399,6 +418,7 @@ function renderizarMetricasFisiologicas() {
 function renderizarGaragem() {
     const uiGaragem = document.getElementById('ui-garagem');
     if (!uiGaragem || !app || !app.state) return;
+
     const tenisList = Array.isArray(app.state.atleta.tenis) ? app.state.atleta.tenis : [];
     if (tenisList.length === 0) {
         uiGaragem.innerHTML = '<p class="empty-state-text">Adicione seus tênis para rastrear o desgaste.</p>';
@@ -414,7 +434,7 @@ function renderizarGaragem() {
                      <button class="btn-icon-small btn-icon-small-edit" onclick="abrirEditarTenis(${t.id})">Editar</button>
                      <button class="btn-icon-small" onclick="aposentarTenis(${t.id})">Aposentar</button>
                    </div>`;
-                        
+                   
             return `
             <div class="shoe-card ${t.aposentado ? 'shoe-card-aposentado' : ''}">
                 <div class="shoe-info"><strong>${t.nome || 'Tênis'} ${warning}</strong><span>${catMap[t.categoria] || t.categoria}</span>${actionBtns}</div>
@@ -479,9 +499,10 @@ function renderizarForecastCalendario(hojeISO, zonas) {
     if (!uiCalendario || !app || !app.state) return;
 
     let htmlCalendario = renderizarTimelineFases();
+
     const planoList = Array.isArray(app.state.plano) ? app.state.plano : [];
     const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
-
+    
     // Traz o limite da semana de SEGUNDA a DOMINGO para exibir histórico e futuro no mesmo local
     const { start: weekStart, end: weekEnd } = obterLimitesDaSemana(hojeISO);
     
@@ -524,6 +545,9 @@ function renderizarForecastCalendario(hojeISO, zonas) {
         const lembreteForca = app.obterTreinoForca(treino.dataISO);
         let badgeForca = lembreteForca ? `<div class="badge-forca">Musculação: ${lembreteForca}</div>` : '';
 
+        // Condição para substituir a palavra de forma dinâmica no label
+        const lblAlvo = app.state.modoEsteira ? 'Velocidade Alvo' : 'Pace Alvo';
+
         htmlCalendario += `
         <div class="day-card ${treino.dataISO === hojeISO ? 'today' : ''} ${treino.concluido ? 'done' : ''}" onclick="this.classList.toggle('expanded')">
             <div class="day-card-header">
@@ -535,7 +559,7 @@ function renderizarForecastCalendario(hojeISO, zonas) {
                 ${iconStatus}
             </div>
             <div class="day-expanded-content" onclick="event.stopPropagation()">
-                ${!ehDescanso ? `<div class="expanded-grid"><div class="expanded-data-box"><span>Volume Base</span><strong>${distCalculada} km</strong></div><div class="expanded-data-box"><span>Pace Alvo</span><strong>${paceAlvo}</strong></div></div>${htmlEstrutura}<p class="forecast-desc-small">"${treino.prescricao || ''}"</p>` : `<p class="forecast-desc-descanso">Dia reservado para adaptação fisiológica e flushing de metabólitos.</p>`}
+                ${!ehDescanso ? `<div class="expanded-grid"><div class="expanded-data-box"><span>Volume Base</span><strong>${distCalculada} km</strong></div><div class="expanded-data-box"><span>${lblAlvo}</span><strong>${paceAlvo}</strong></div></div>${htmlEstrutura}<p class="forecast-desc-small">"${treino.prescricao || ''}"</p>` : `<p class="forecast-desc-descanso">Dia reservado para adaptação fisiológica e flushing de metabólitos.</p>`}
                 ${badgeForca}${actionBtn}
             </div>
         </div>`;
@@ -626,7 +650,7 @@ function carregarMaisSemanasMacrociclo() {
                     </div>
                 </div>
             </div>`;
-
+            
         treinosDaSemana++;
 
         if (treinosDaSemana === 7 || i === diaFinal - 1 || i === diasTotaisDoPlano - 1) {

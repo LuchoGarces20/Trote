@@ -85,20 +85,19 @@ class RunningCoach {
         const distAtualSanitizada = Math.max(0.1, parseFloat(inputData.distAtual) || 10);
         const tempoAtualSanitizado = Math.max(1, parseFloat(inputData.tempoAtual) || 60);
         const paceBaseSegundos = Math.round((tempoAtualSanitizado * 60) / distAtualSanitizada);
-
+        
         let diasMusc = Array.isArray(inputData.diasMusculacao) ? inputData.diasMusculacao : [];
         if (inputData.fazMusculacao && diasMusc.length === 0) {
             diasMusc = [1, 3, 5];
         }
-
+        
         const volSemanal = Math.max(0, parseFloat(inputData.volSemanal) || 10);
         const ctlInferido = Math.min(85, Math.max(15, (volSemanal * 0.90)));
         const atlInferido = ctlInferido * 1.05;
-
         const idade = Math.max(10, parseInt(inputData.idade, 10) || 30);
         const fcRepouso = Math.max(30, parseInt(inputData.fcRepouso, 10) || 60);
         const fcMax = inputData.fcMax ? parseInt(inputData.fcMax, 10) : (220 - idade);
-
+        
         const dadosAtleta = {
             nome: String(inputData.nome || 'Atleta'),
             idade: idade,
@@ -118,14 +117,14 @@ class RunningCoach {
             atl: atlInferido,
             faseRegeneracaoAbsoluta: false
         };
-
+        
         const dadosProva = {
             distanciaKm: Math.max(1, parseFloat(inputData.distAlvo) || 10),
             dataStr: inputData.dataAlvo || getLocalISODate(),
             tipoMeta: inputData.tipoMeta || 'concluir',
             tempoAlvoStr: String(inputData.tempoAlvoStr || '')
         };
-
+        
         this.inicializarAtleta(dadosAtleta, dadosProva);
     }
 
@@ -138,7 +137,7 @@ class RunningCoach {
             tsb: 0,
             ehFuturo: true
         }));
-
+        
         this.state = {
             atleta: {
                 ...dadosAtleta,
@@ -159,7 +158,7 @@ class RunningCoach {
     verificarDestreinamentoEgressor() {
         if (!this.state || !Array.isArray(this.state.treinosRealizados) || this.state.treinosRealizados.length === 0) return;
         if (this.state.atleta?.faseRegeneracaoAbsoluta) return;
-
+        
         const hojeISO = getLocalISODate();
         const treinosOrdenados = [...this.state.treinosRealizados].sort((a,b) => new Date(b.dataISO) - new Date(a.dataISO));
         
@@ -182,15 +181,14 @@ class RunningCoach {
 
     processarTreino(idReferencia, dist, tempoMin, fc, rpe, tenisId, ehEdicao) {
         if (!this.state) return;
-
         if (!ehEdicao) {
             this.registrarTreino(parseInt(idReferencia, 10), dist, tempoMin, rpe, tenisId, fc);
             return;
         }
-
         const treino = this.state.treinosRealizados.find(t => t && t.idReferencia === idReferencia);
         if (treino) {
             const distNum = Math.max(0.01, parseFloat(dist) || 0);
+            
             if (treino.tenisId) {
                 const oldTenis = this.state.atleta.tenis.find(t => t && t.id == treino.tenisId);
                 if (oldTenis) {
@@ -198,14 +196,14 @@ class RunningCoach {
                     oldTenis.kmAcumulados = parseFloat(Math.max(0, kmAntigos - treino.dist).toFixed(1));
                 }
             }
-
+            
             treino.dist = distNum;
             treino.tempoMin = Math.max(1, parseFloat(tempoMin) || 1);
             treino.fcMedia = fc ? parseInt(fc, 10) : null;
             treino.rpe = Math.max(1, Math.min(10, parseInt(rpe, 10) || 6));
             treino.tss = CoachPhysiology.calcularTSS(treino.tempoMin, treino.rpe, treino.fcMedia, this.state.atleta);
             treino.tenisId = tenisId ? parseInt(tenisId, 10) : null;
-
+            
             if (treino.tenisId) {
                 const newTenis = this.state.atleta.tenis.find(t => t && t.id == treino.tenisId);
                 if (newTenis) {
@@ -213,7 +211,7 @@ class RunningCoach {
                     newTenis.kmAcumulados = parseFloat((kmNovos + treino.dist).toFixed(1));
                 }
             }
-
+            
             this.recalcularFisiologia();
             this.saveState();
         }
@@ -223,13 +221,13 @@ class RunningCoach {
         if (!this.state) return;
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (!treinoPlano) return;
-
+        
         const distNum = Math.max(0.01, parseFloat(dist) || 0);
         const tempoMinNum = Math.max(1, parseFloat(tempoMin) || 1);
         const fcMedia = fc ? parseInt(fc, 10) : null;
         const rpeVal = Math.max(1, Math.min(10, parseInt(rpe, 10) || 6));
         const tss = CoachPhysiology.calcularTSS(tempoMinNum, rpeVal, fcMedia, this.state.atleta);
-
+        
         const novoRegistro = {
             idReferencia: `log_${Date.now()}`,
             dataISO: treinoPlano.dataISO,
@@ -241,10 +239,10 @@ class RunningCoach {
             tss,
             tenisId: tenisId ? parseInt(tenisId, 10) : null
         };
-
+        
         treinoPlano.concluido = true;
         this.state.treinosRealizados.push(novoRegistro);
-
+        
         if (tenisId) {
             const tenis = this.state.atleta.tenis.find(t => t && t.id == tenisId);
             if (tenis) {
@@ -252,29 +250,27 @@ class RunningCoach {
                 tenis.kmAcumulados = parseFloat((kmPrev + distNum).toFixed(1));
             }
         }
-
+        
         this.state.logs.unshift({ data: formatarDataHoje(), msg: `Treino registrado: ${treinoPlano.tipo} (${distNum} km)` });
         this.rebalancearSemana(treinoPlano.dataISO);
         this.recalcularFisiologia();
         this.saveState();
     }
 
-    // REGISTRO RÁPIDO (1-TAP LOG: "CONCLUÍ COMO PRESCRITO")
     registrarComoPrescrito(idPlano) {
         if (!this.state || !Array.isArray(this.state.plano)) return;
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (!treinoPlano) return;
-
+        
         const multVol = parseFloat(this.state.atleta?.multiplicadorVolume) || 1.0;
         const distNum = parseFloat(((parseFloat(treinoPlano.distanciaBase) || 0) * multVol).toFixed(1));
         if (distNum <= 0) return;
-
-        // Calcular tempo estimado no meio da faixa de pace prescrito
+        
         const tipo = treinoPlano.tipo || "Rodagem Leve";
         const zonas = this.obterZonasKarvonen();
         let tempoMin = 45;
-
-        if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("Máx")) {
+        
+        if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("M x")) {
             const partesPace = zonas[tipo].pace.split('/km')[0].split('-').map(p => p.trim());
             if (partesPace.length === 2) {
                 const seg1 = this._paceParaSegundos(partesPace[0]);
@@ -289,26 +285,25 @@ class RunningCoach {
             const baseSeg = Math.max(60, parseFloat(this.state.atleta.paceBaseSegundos) || 330);
             tempoMin = (baseSeg * distNum) / 60;
         }
-
-        // Definir sRPE padrão por tipo de treino
+        
         let rpeDefault = 6;
         if (tipo.includes("Regenerativo")) rpeDefault = 2;
         else if (tipo.includes("Rodagem") || tipo.includes("Leve")) rpeDefault = 4;
         else if (tipo.includes("Maratona") || tipo.includes("Tempo")) rpeDefault = 6;
         else if (tipo.includes("Limiar")) rpeDefault = 8;
         else if (tipo.includes("Intervalado") || tipo.includes("Tiros") || tipo === "PROVA ALVO") rpeDefault = 9;
-
+        
         const tenisId = this.obterTenisSugerido(tipo);
         
         if (treinoPlano.tipo === "PROVA ALVO") {
             this.finalizarProvaEIniciarPosProva(parseInt(idPlano, 10), distNum, tempoMin, rpeDefault, tenisId, null);
-            if (typeof showToast === 'function') showToast("⚡ Prova registrada como prescrita!");
+            if (typeof showToast === 'function') showToast("🎉 Prova registrada como prescrita!");
             if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
             return;
         }
-
+        
         this.registrarTreino(idPlano, distNum, tempoMin, rpeDefault, tenisId, null);
-        if (typeof showToast === 'function') showToast("⚡ Treino registrado como prescrito!");
+        if (typeof showToast === 'function') showToast("✅ Treino registrado como prescrito!");
         if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
     }
 
@@ -325,13 +320,12 @@ class RunningCoach {
                 }
             }
             this.state.treinosRealizados.splice(idx, 1);
-
+            
             const sobrouNaData = this.state.treinosRealizados.some(t => t && t.dataISO === dataISO);
             if (!sobrouNaData) {
                 const itemPlano = this.state.plano.find(t => t && t.dataISO === dataISO);
                 if (itemPlano) itemPlano.concluido = false;
             }
-
             this.recalcularFisiologia();
             this.saveState();
             if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
@@ -346,12 +340,12 @@ class RunningCoach {
         const treinosPassados = this.state.plano.filter(t => t && (t.dataISO < hoje || t.concluido));
         
         const novoPlanoBase = CoachPlanner.gerarPlano(this.state.atleta, this.state.prova);
-        
         let maxId = Math.max(0, ...treinosPassados.map(t => parseInt(t.id, 10) || 0));
+        
         const treinosFuturos = novoPlanoBase
             .filter(t => t && t.dataISO >= hoje && !t.concluido)
             .map(t => ({ ...t, id: ++maxId }));
-
+            
         this.state.plano = [...treinosPassados, ...treinosFuturos];
         this.rebalancearSemana(hoje);
         this.saveState();
@@ -366,28 +360,38 @@ class RunningCoach {
     atualizarSimulador(paceSeg) {
         if (!this.state) return;
         const paceNum = Math.max(60, parseFloat(paceSeg) || 330);
-        const paceStr = this._segundosParaPace(paceNum);
+        
+        // Conversão automática para km/h no modo esteira
+        let paceStr;
+        if (this.state.modoEsteira) {
+            paceStr = (3600 / paceNum).toFixed(1);
+        } else {
+            paceStr = this._segundosParaPace(paceNum);
+        }
         
         const elPace = document.getElementById('sim-pace-val');
         const elHr = document.getElementById('sim-hr-val');
         const elZone = document.getElementById('sim-zone-val');
+        const elUnit = document.getElementById('sim-pace-unit');
 
         if (elPace) elPace.innerText = paceStr;
+        if (elUnit) elUnit.innerText = this.state.modoEsteira ? 'km/h' : '/km';
+
         if (elHr && elZone) {
             const base = Math.max(60, parseFloat(this.state.atleta.paceBaseSegundos) || 330);
             const rep = Math.max(30, parseFloat(this.state.atleta.fcRepouso) || 60);
             const max = Math.max(rep + 10, parseFloat(this.state.atleta.fcMax) || 185);
-
+            
             let perc = 0.65;
             if (paceNum <= base - 45) perc = 0.95;
             else if (paceNum <= base - 15) perc = 0.88;
             else if (paceNum <= base + 15) perc = 0.80;
             else if (paceNum <= base + 45) perc = 0.72;
             else perc = 0.60;
-
+            
             const hr = Math.round(rep + perc * (max - rep));
             elHr.innerText = isNaN(hr) ? '--' : hr;
-
+            
             if (perc >= 0.9) elZone.innerText = "Z5 - VO2/Anaeróbico";
             else if (perc >= 0.8) elZone.innerText = "Z4 - Limiar";
             else if (perc >= 0.7) elZone.innerText = "Z3 - Tempo";
@@ -410,12 +414,11 @@ class RunningCoach {
             this.state.atleta.ctl,
             this.state.atleta.atl
         );
-
         const hojeISO = getLocalISODate();
         const hojestat = (Array.isArray(this.state.atleta.historicoCTL) 
             ? this.state.atleta.historicoCTL.find(h => h && h.dataISO === hojeISO) 
             : null) || {};
-
+            
         this.state.atleta.ctl = parseFloat(hojestat.ctl) || this.state.atleta.ctl || 20;
         this.state.atleta.atl = parseFloat(hojestat.atl) || this.state.atleta.atl || 20;
         this.state.atleta.tsb = parseFloat(hojestat.tsb) || 0;
@@ -466,29 +469,31 @@ class RunningCoach {
         return CoachPlanner.obterTenisSugerido(tipoTreino, this.state.atleta.tenis);
     }
 
+    // Correção: A função adicionarTenis estava sem a chave final
     adicionarTenis(nome, categoria, kmInicial = 0) {
-    if (!this.state) return;
-    const km = Math.max(0, parseFloat(kmInicial) || 0);
-    this.state.atleta.tenis.push({
-        id: Date.now(),
-        nome: String(nome || 'Tênis Novo').trim(),
-        categoria: categoria || 'versatil',
-        kmAcumulados: parseFloat(km.toFixed(1)),
-        aposentado: false
-    });
-    this.saveState();
-}
-
-editarTenis(id, nome, categoria, kmAcumulados) {
-    if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
-    const tenis = this.state.atleta.tenis.find(t => t && t.id == id);
-    if (tenis) {
-        tenis.nome = String(nome || tenis.nome).trim();
-        tenis.categoria = categoria || tenis.categoria;
-        tenis.kmAcumulados = Math.max(0, parseFloat(kmAcumulados) || 0);
+        if (!this.state) return;
+        const km = Math.max(0, parseFloat(kmInicial) || 0);
+        this.state.atleta.tenis.push({
+            id: Date.now(),
+            nome: String(nome || 'Tênis Novo').trim(),
+            categoria: categoria || 'versatil',
+            kmAcumulados: parseFloat(km.toFixed(1)),
+            aposentado: false
+        });
         this.saveState();
+    } 
+
+    editarTenis(id, nome, categoria, kmAcumulados) {
+        if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
+        const tenis = this.state.atleta.tenis.find(t => t && t.id == id);
+        if (tenis) {
+            tenis.nome = String(nome || tenis.nome).trim();
+            tenis.categoria = categoria || tenis.categoria;
+            tenis.kmAcumulados = Math.max(0, parseFloat(kmAcumulados) || 0);
+            this.saveState();
+        }
     }
-}
+
     aposentarTenis(id) {
         if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
         const tenis = this.state.atleta.tenis.find(t => t && t.id == id);
@@ -529,24 +534,22 @@ editarTenis(id, nome, categoria, kmAcumulados) {
 
     finalizarProvaEIniciarPosProva(idPlano, distReal, tempoMin, rpe, tenisId, fc = null) {
         if (!this.state) return;
-
         const distValida = Math.max(0.5, parseFloat(distReal) || 10.0);
         const tempoMinValido = Math.max(1, parseFloat(tempoMin) || 60);
+        
         const tempoTotalSeg = tempoMinValido * 60;
-
         const distRef10k = 10;
         const tempoEst10kSeg = tempoTotalSeg * Math.pow(distRef10k / distValida, 1 / 1.06);
         const ritmoLimiarSeg = Math.max(60, Math.round(tempoEst10kSeg / distRef10k));
-
+        
         this.state.atleta.paceBaseSegundos = ritmoLimiarSeg;
-
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (treinoPlano) treinoPlano.concluido = true;
-
+        
         const fcMedia = fc ? parseInt(fc, 10) : null;
         const rpeVal = Math.max(1, Math.min(10, parseInt(rpe, 10) || 6));
         const tss = CoachPhysiology.calcularTSS(tempoMinValido, rpeVal, fcMedia, this.state.atleta);
-
+        
         const novoRegistro = {
             idReferencia: `log_prova_${Date.now()}`,
             dataISO: treinoPlano ? treinoPlano.dataISO : getLocalISODate(),
@@ -558,9 +561,9 @@ editarTenis(id, nome, categoria, kmAcumulados) {
             tss,
             tenisId: tenisId ? parseInt(tenisId, 10) : null
         };
-
+        
         this.state.treinosRealizados.push(novoRegistro);
-
+        
         if (tenisId) {
             const tenis = this.state.atleta.tenis.find(t => t && t.id == tenisId);
             if (tenis) {
@@ -568,46 +571,45 @@ editarTenis(id, nome, categoria, kmAcumulados) {
                 tenis.kmAcumulados = parseFloat((kmPrev + distValida).toFixed(1));
             }
         }
-
+        
         this.state.emManutencao = true;
         this.state.atleta.faseRegeneracaoAbsoluta = true;
-
+        
         const planoPos = CoachPlanner.gerarPlanoPosProva(
             this.state.atleta, 
             distValida, 
             novoRegistro.dataISO
         );
-
         this.state.plano = planoPos;
+        
         this.state.logs.unshift({
             data: formatarDataHoje(),
             msg: `Prova concluída em ${this._minutosParaTempoString(tempoMinValido)}! Pace Base recalibrado para ${this._segundosParaPace(ritmoLimiarSeg)}/km. Entrando no modo Recuperação + Baseline.`
         });
-
+        
         this.recalcularFisiologia();
         this.saveState();
     }
 
     definirNovaMeta(distAlvo, dataAlvoISO, tipoMeta, tempoAlvoStr) {
         if (!this.state) return;
-
         const distValida = Math.max(1, parseFloat(distAlvo) || 10);
         const dataValida = dataAlvoISO || getLocalISODate();
-
+        
         this.state.prova = {
             distanciaKm: distValida,
             dataStr: dataValida,
             tipoMeta: tipoMeta || 'concluir',
             tempoAlvoStr: String(tempoAlvoStr || '')
         };
-
+        
         this.state.atleta.dataInicioISO = getLocalISODate();
         this.state.emManutencao = false;
         this.state.atleta.faseRegeneracaoAbsoluta = false;
-
+        
         const novoPlano = CoachPlanner.gerarPlano(this.state.atleta, this.state.prova);
         this.state.plano = novoPlano;
-
+        
         const hojeISO = getLocalISODate();
         const historicoAtualizado = [
             ...this.state.atleta.historicoCTL.filter(h => h && h.dataISO < hojeISO && !h.ehFuturo),
@@ -619,13 +621,14 @@ editarTenis(id, nome, categoria, kmAcumulados) {
                 ehFuturo: true
             }))
         ];
-
+        
         this.state.atleta.historicoCTL = historicoAtualizado;
+        
         this.state.logs.unshift({
             data: formatarDataHoje(),
             msg: `Novo objetivo definido: Prova de ${distValida}km para ${dataValida.split('-').reverse().join('/')}. Macrociclo recriado!`
         });
-
+        
         this.recalcularFisiologia();
         this.saveState();
     }

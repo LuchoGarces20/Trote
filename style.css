@@ -1,5 +1,5 @@
 /* ==========================================
-   UI/UX: KARU - PREMIUM AI COACH
+   UI/UX: TROTE - PREMIUM AI COACH
    TEMA: iOS Native Glassmorphism & High Performance
    ========================================== */
 
@@ -161,11 +161,6 @@ h2 { font-family: 'Outfit', sans-serif; font-size: 1.15rem; font-weight: 700; ma
     text-shadow: 0 10px 30px var(--theme-glow); 
 }
 .today-distance span { font-family: 'Inter', sans-serif; font-size: 1.8rem; font-weight: 600; color: var(--text-tertiary); margin-left: 4px; letter-spacing: normal; text-shadow: none; }
-
-.today-metrics { display: flex; gap: 16px; justify-content: center; margin-bottom: 32px; width: 100%; }
-.today-metrics-card { background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); padding: 16px 12px; border-radius: var(--radius-md); flex: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-.today-metrics-card div { font-size: 0.7rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; margin-bottom: 6px; }
-.today-metrics-card strong { font-family: 'Outfit', sans-serif; color: var(--text-primary); font-size: 1.5rem; font-weight: 800; }
 
 .today-desc { font-size: 1rem; color: var(--text-secondary); max-width: 90%; margin: 0 auto 30px auto; font-weight: 500; line-height: 1.6; }
 
@@ -417,15 +412,123 @@ select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmln
 }
 .ios-day-label:active { transform: scale(0.92); }
 
-/* === DASHBOARD METRICS === */
-.metrics-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
-.metric-box { background: var(--bg-surface-elevated); padding: 16px 6px; border-radius: var(--radius-sm); text-align: center; border: 1px solid var(--border-subtle); box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-.metric-value { font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 800; margin: 6px 0; color: var(--text-primary); }
-.metric-label { font-size: 0.65rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+/* ==========================================
+   DASHBOARD & HIERARQUIA VISUAL (PERFORMANCE)
+   ========================================== */
+.dashboard-section-title {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 32px 0 12px 8px;
+    opacity: 0.8;
+}
+
+/* Nova Grid de Métricas (2 topo, 3 base) */
+.metrics-grid-reworked {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+}
+
+.metric-box {
+    grid-column: span 2; /* 3 itens na linha de baixo */
+    background: var(--bg-surface-elevated);
+    padding: 12px 6px;
+    border-radius: var(--radius-sm);
+    text-align: center;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+.metric-box.highlighted {
+    grid-column: span 3; /* 2 itens na linha de cima */
+    padding: 20px 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+}
+
+.metric-box.highlighted .metric-value {
+    font-size: 1.8rem;
+    color: var(--brand-accent);
+}
+
+.metric-value {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 6px 0;
+    color: var(--text-primary);
+}
+
+.metric-label {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
 
 .metric-value.positive { color: var(--success) !important; }
 .metric-value.negative { color: var(--warning) !important; }
 .metric-value.danger { color: var(--danger) !important; }
+
+/* Quick Actions (Botões Lado a Lado) */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+.action-card-btn {
+    background: var(--bg-surface);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 18px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-card);
+}
+
+.action-card-btn:active {
+    transform: scale(0.95);
+}
+
+.action-card-btn:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-surface-elevated);
+}
+
+.action-card-btn span {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.action-card-btn small {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+#screen-dashboard .card h2 {
+    margin-bottom: 12px;
+}
+
+#screen-dashboard .card {
+    margin-top: 14px;
+}
 
 /* === INTERAÇÕES DO FORECAST === */
 .day-card { display: flex; flex-direction: column; padding: 18px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); background: var(--bg-surface-elevated); margin-bottom: 12px; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }

@@ -63,7 +63,19 @@ function verificarAvisosPasso4() {
     const distAtual = Math.max(0, parseFloat(document.getElementById('setup-dist-atual')?.value) || 0);
     const tempoAtual = Math.max(0, parseFloat(document.getElementById('setup-tempo-atual')?.value) || 0);
     const tipoMeta = document.getElementById('setup-tipo-meta')?.value || 'concluir';
-    const tempoAlvoStr = document.getElementById('setup-tempo-alvo')?.value?.trim() || '';
+    
+    // Suporte aos inputs separados H, M, S ou ao input único
+    const hInput = document.getElementById('setup-tempo-h');
+    const mInput = document.getElementById('setup-tempo-m');
+    const sInput = document.getElementById('setup-tempo-s');
+    let tempoAlvoStr = document.getElementById('setup-tempo-alvo')?.value?.trim() || '';
+
+    if (hInput || mInput || sInput) {
+        const h = (hInput?.value || '0').padStart(2, '0');
+        const m = (mInput?.value || '0').padStart(2, '0');
+        const s = (sInput?.value || '0').padStart(2, '0');
+        tempoAlvoStr = `${h}:${m}:${s}`;
+    }
 
     if (!dataAlvoStr) {
         elWarning.style.display = 'none';
@@ -101,7 +113,7 @@ function verificarAvisosPasso4() {
     }
 }
 
-['setup-vol-semanal', 'setup-dist-alvo', 'setup-data-alvo', 'setup-dist-atual', 'setup-tempo-atual', 'setup-tipo-meta', 'setup-tempo-alvo'].forEach(id => {
+['setup-vol-semanal', 'setup-dist-alvo', 'setup-data-alvo', 'setup-dist-atual', 'setup-tempo-atual', 'setup-tipo-meta', 'setup-tempo-alvo', 'setup-tempo-h', 'setup-tempo-m', 'setup-tempo-s'].forEach(id => {
     const inputEl = document.getElementById(id);
     if (inputEl) {
         inputEl.addEventListener('change', verificarAvisosPasso4);
@@ -153,7 +165,6 @@ window.fecharModal = function(idModal, skipHistoryBack = false) {
             card.style.transition = '';
         }
 
-        // [NOVA FUNCIONALIDADE] Deslizar para o topo (plano de treino do dia)
         const screenToday = document.getElementById('screen-today');
         if (screenToday && screenToday.classList.contains('active-screen')) {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -171,7 +182,6 @@ window.fecharModaisFora = function(event, idModal) {
     }
 }
 
-// CONTROLE DO BOTÃO "VOLTAR" NATIVO DO ANDROID (POPSTATE)
 window.addEventListener('popstate', () => {
     const modaisAbertos = document.querySelectorAll('.modal-overlay.active:not(.is-closing)');
     if (modaisAbertos.length > 0) {
@@ -245,7 +255,6 @@ function inicializarGestoDeslizarModais() {
     }, { passive: true });
 }
 
-// CONTROLE DO SELETOR VISUAL DE sRPE
 window.selecionarSRPE = function(val) {
     const valNum = parseInt(val, 10) || 6;
     const inputRpe = document.getElementById('input-rpe');
@@ -527,7 +536,22 @@ window.finalizarOnboarding = function() {
     const distAlvo = Math.max(1, parseFloat(document.getElementById('setup-dist-alvo')?.value) || 10);
     const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal')?.value) || 10);
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
-    const tempoAlvoStr = document.getElementById('setup-tempo-alvo') ? document.getElementById('setup-tempo-alvo').value.trim() : '';
+    
+    // Captura tempo alvo de inputs separados ou do campo tradicional
+    const tempoAlvoInput = document.getElementById('setup-tempo-alvo');
+    let tempoAlvoStr = tempoAlvoInput ? tempoAlvoInput.value.trim() : '';
+
+    const hInput = document.getElementById('setup-tempo-h');
+    const mInput = document.getElementById('setup-tempo-m');
+    const sInput = document.getElementById('setup-tempo-s');
+
+    if (hInput || mInput || sInput) {
+        const h = (hInput?.value || '0').padStart(2, '0');
+        const m = (mInput?.value || '0').padStart(2, '0');
+        const s = (sInput?.value || '0').padStart(2, '0');
+        tempoAlvoStr = `${h}:${m}:${s}`;
+        if (tempoAlvoInput) tempoAlvoInput.value = tempoAlvoStr;
+    }
 
     const tenisNome = (document.getElementById('setup-tenis-nome')?.value || '').trim();
     if (!tenisNome) {
@@ -707,10 +731,8 @@ document.getElementById('form-estrategia')?.addEventListener('submit', (e) => {
     const paceAlvoSeg = Math.round(totalSegundos / dist);
     const elResPace = document.getElementById('res-pace-alvo');
     
-    // Suporte ao "Velocidade Alvo" / "Pace Alvo"
     const isEsteira = app && app.state && app.state.modoEsteira;
 
-    // Ajusta título superior do Modal Estratégia
     const elSubtitulo = document.querySelector('#resultado-estrategia > div > div:first-child');
     if (elSubtitulo) {
         elSubtitulo.innerText = isEsteira ? 'Velocidade Média Necessária' : 'Pace Médio Necessário';

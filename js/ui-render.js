@@ -208,7 +208,6 @@ function _atualizarBotaoEsteira() {
         btnEsteira.style.background = '';
     }
 
-    // Altera Textos Dinamicamente (Pace -> Velocidade) no Simulador
     const simDesc = document.querySelector('.simulator-container')?.previousElementSibling;
     if (simDesc) {
         simDesc.innerText = eEsteira ? "Arraste para estimar a resposta cardíaca de uma velocidade na esteira." : "Arraste para estimar a resposta cardíaca de um pace na rua.";
@@ -217,7 +216,6 @@ function _atualizarBotaoEsteira() {
     const simUnit = document.getElementById('sim-pace-unit');
     if (simUnit) simUnit.innerText = eEsteira ? 'km/h' : '/km';
 
-    // Dispara atualização do slider para ajustar conversões numéricas
     const simSlider = document.getElementById('sim-slider');
     if (simSlider && typeof app.atualizarSimulador === 'function') {
         app.atualizarSimulador(simSlider.value);
@@ -302,12 +300,54 @@ function renderizarCardHoje(hojeISO, zonas) {
         const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
         const distCalculada = parseFloat(((parseFloat(treinoHoje.distanciaBase) || 0) * multVol).toFixed(1));
         const infoZona = zonas[tipo] || {};
-        const rotuloRitmo = app.state.modoEsteira ? 'Velocidade' : 'Pace';
+        const eEsteira = !!app.state.modoEsteira;
 
+        // Estimar tempo total em minutos para o treino de hoje
+        let tempoEstimadoMin = 45;
+        if (infoZona.pace && infoZona.pace !== "-" && !infoZona.pace.includes("Variado") && !infoZona.pace.includes("Máx")) {
+            const paceStr = infoZona.pace.split(' ')[0].replace('/km', '');
+            const paceSeg = (typeof app._paceParaSegundos === 'function') ? app._paceParaSegundos(paceStr) : 330;
+            tempoEstimadoMin = Math.round((paceSeg * distCalculada) / 60);
+        } else if (app.state && app.state.atleta) {
+            const baseSeg = Math.max(60, parseFloat(app.state.atleta.paceBaseSegundos) || 330);
+            tempoEstimadoMin = Math.round((baseSeg * distCalculada) / 60);
+        }
+        if (isNaN(tempoEstimadoMin) || tempoEstimadoMin <= 0) tempoEstimadoMin = 30;
+
+        // Hero Metric: Em modo esteira destaca o TEMPO, em modo rua destaca a DISTÂNCIA
+        const heroHtml = eEsteira 
+            ? `<div class="hero-distance-huge">${tempoEstimadoMin}<span>min</span></div>`
+            : `<div class="hero-distance-huge">${distCalculada}<span>km</span></div>`;
+
+        // Today Metrics Grid: Destaque para Velocidade e Tempo/Distância
+        const rotuloRitmo = eEsteira ? 'Velocidade' : 'Pace';
+        const metricsHtml = eEsteira
+            ? `<div class="today-metrics">
+                <div class="today-metrics-card primary-metric"><div class="metric-tag">Meta Esteira</div><div class="metric-label">Velocidade Alvo</div><strong class="metric-val">${infoZona.pace || '-'}</strong></div>
+                <div class="today-metrics-card secondary-metric"><div class="metric-label">Distância & FC Esperada</div><strong class="metric-val">~${distCalculada} km (${infoZona.fc || '-'})</strong></div>
+               </div>`
+            : `<div class="today-metrics">
+                <div class="today-metrics-card primary-metric"><div class="metric-tag">Target</div><div class="metric-label">${rotuloRitmo} Alvo</div><strong class="metric-val">${infoZona.pace || '-'}</strong></div>
+                <div class="today-metrics-card secondary-metric"><div class="metric-label">Zona & FC Esperada</div><strong class="metric-val">${infoZona.fc || '-'}</strong></div>
+               </div>`;
+
+        // Estrutura do Treino adaptada para modo esteira se necessário
         let htmlEstrutura = '';
         if (Array.isArray(treinoHoje.estrutura) && treinoHoje.estrutura.length > 0) {
-            htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">Execução Estruturada</div>` + 
-                 treinoHoje.estrutura.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
+            const tituloEstrutura = eEsteira ? "Execução na Esteira (Tempo & Velocidade)" : "Execução Estruturada";
+            const blocosProcessados = treinoHoje.estrutura.map(bloco => {
+                if (!eEsteira) return bloco;
+                return bloco.replace(/(\d+(\.\d+)?)\s*km/gi, (match, p1) => {
+                    const kmBloco = parseFloat(p1);
+                    if (distCalculada > 0 && !isNaN(kmBloco)) {
+                        const minBloco = Math.round((kmBloco / distCalculada) * tempoEstimadoMin);
+                        return `${kmBloco}km (~${minBloco} min)`;
+                    }
+                    return match;
+                });
+            });
+            htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">${tituloEstrutura}</div>` + 
+                 blocosProcessados.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
         }
 
         const lembreteForca = app.obterTreinoForca(hojeISO);
@@ -327,12 +367,9 @@ function renderizarCardHoje(hojeISO, zonas) {
             <div class="phase-badge">${treinoHoje.fasePlano || 'Ciclo de Treino'}</div>
             <div class="today-date">${formatarDataHoje()}</div>
             <h2 class="today-type" style="margin-top:4px;">${tipo}</h2>
-            <div class="hero-distance-huge">${distCalculada}<span>km</span></div>
+            ${heroHtml}
 
-            <div class="today-metrics">
-                <div class="today-metrics-card primary-metric"><div class="metric-tag">Target</div><div class="metric-label">${rotuloRitmo} Alvo</div><strong class="metric-val">${infoZona.pace || '-'}</strong></div>
-                <div class="today-metrics-card secondary-metric"><div class="metric-label">Zona & FC Esperada</div><strong class="metric-val">${infoZona.fc || '-'}</strong></div>
-            </div>
+            ${metricsHtml}
 
             <div class="guia-sensacao-box"><strong>Guia de Sensação:</strong><br>${infoZona.guia || ''}</div>
             
@@ -503,10 +540,8 @@ function renderizarForecastCalendario(hojeISO, zonas) {
     const planoList = Array.isArray(app.state.plano) ? app.state.plano : [];
     const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
     
-    // Traz o limite da semana de SEGUNDA a DOMINGO para exibir histórico e futuro no mesmo local
     const { start: weekStart, end: weekEnd } = obterLimitesDaSemana(hojeISO);
     
-    // Filtramos para a semana visual atual
     const treinosExibidos = planoList.filter(t => t && t.dataISO >= weekStart && t.dataISO <= weekEnd);
 
     treinosExibidos.forEach(treino => {
@@ -545,7 +580,6 @@ function renderizarForecastCalendario(hojeISO, zonas) {
         const lembreteForca = app.obterTreinoForca(treino.dataISO);
         let badgeForca = lembreteForca ? `<div class="badge-forca">Musculação: ${lembreteForca}</div>` : '';
 
-        // Condição para substituir a palavra de forma dinâmica no label
         const lblAlvo = app.state.modoEsteira ? 'Velocidade Alvo' : 'Pace Alvo';
 
         htmlCalendario += `
@@ -629,7 +663,6 @@ function carregarMaisSemanasMacrociclo() {
         const d = parts[2] || '01';
         const m = parts[1] || '01';
 
-        // Lógica de ação unificada na lista completa (Registrar, Editar ou Reagendar)
         let clickAction = '';
         if (treino.concluido) {
             const log = app.state.treinosRealizados.find(t => t && t.dataISO === treino.dataISO);
@@ -667,3 +700,56 @@ function carregarMaisSemanasMacrociclo() {
         if (btnCarregar) btnCarregar.style.display = 'none';
     }
 }
+
+// ==========================================
+// GLOSSÁRIO FISIOLÓGICO E INFORMAÇÕES DE MÉTRICAS
+// ==========================================
+const DICIONARIO_METRICAS = {
+    ctl: {
+        titulo: "Fitness (CTL - Chronic Training Load)",
+        descricao: "Média ponderada do estresse diário (TSS) dos últimos 42 dias. Representa o seu histórico de carga acumulada e seu nível de condicionamento físico atual.",
+        bom: "Crescimento gradual e constante (rampa sustentável de +1 a +3 pontos por semana). Quanto maior o CTL com boa recuperação, maior o seu preparo físico.",
+        atencao: "Queda brusca indica perda de condicionamento (detraining). Aumentos acima de 5 pontos/semana indicam risco de sobrecarga nas articulações e tendões."
+    },
+    atl: {
+        titulo: "Fadiga (ATL - Acute Training Load)",
+        descricao: "Média ponderada do estresse diário (TSS) dos últimos 7 dias. Mede o cansaço e o estresse muscular gerado pelos treinos recentes.",
+        bom: "Valores próximos ou ligeiramente acima do seu Fitness (CTL) em semanas de treino intenso e progressivo.",
+        atencao: "ATL muito superior ao CTL (mais de 1.5x) mantido por vários dias consecutivos. Indica alto risco de exaustão e necessidade de semana regenerativa."
+    },
+    tsb: {
+        titulo: "Forma (TSB - Training Stress Balance)",
+        descricao: "Calculado como (Fitness - Fadiga). Representa o balanço entre o seu preparo físico e o nível de cansaço. Indica o quanto você está 'fresco' para performar.",
+        bom: "• Treinamento: Entre -15 e +10 (faixa ideal para adaptação fisiológica sem esgotamento).\n• Prova: Entre +5 e +25 (corpo descansado e altamente responsivo).",
+        atencao: "• Abaixo de -20: Fadiga severa e risco elevado de lesão/overtraining.\n• Acima de +25 por mais de 2 semanas: Perda de estímulo e perda de condicionamento."
+    },
+    acwr: {
+        titulo: "Risco de Lesão (ACWR - Acute to Chronic Workload Ratio)",
+        descricao: "Razão entre a Carga Aguda (7 dias) e a Carga Crônica (28 dias). Avalia a velocidade de aumento do volume e da intensidade do treino.",
+        bom: "Entre 0.80 e 1.30 ('Sweet Spot'). Faixa ideal onde o ganho de condicionamento acontece com o menor risco fisiológico de lesão.",
+        atencao: "• 1.30 a 1.50: Risco moderado. Fique atento a dores articulares.\n• Acima de 1.50: 'Zona de Perigo'. Aumento de carga muito rápido, alto risco de lesão tecidual."
+    },
+    monotonia: {
+        titulo: "Tédio / Monotonia (14 Dias)",
+        descricao: "Mede a variação das cargas diárias nos últimos 14 dias (Média ÷ Desvio Padrão). Avalia se você está alternando dias fortes com dias leves/descanso.",
+        bom: "Abaixo de 1.50. Indica boa variação entre dias intensos, dias leves e dias de repouso.",
+        atencao: "• 1.50 a 2.00: Pouca variação nos treinos.\n• Acima de 2.00: Risco Alto. Treinar com a mesma intensidade todos os dias reduz a recuperação neuromuscular e eleva o risco de overtraining."
+    }
+};
+
+window.abrirInfoMetrica = function(chaveMetrica) {
+    const info = DICIONARIO_METRICAS[chaveMetrica];
+    if (!info) return;
+
+    const elTitulo = document.getElementById('info-metrica-titulo');
+    const elDesc = document.getElementById('info-metrica-desc');
+    const elBom = document.getElementById('info-metrica-bom');
+    const elAtencao = document.getElementById('info-metrica-atencao');
+
+    if (elTitulo) elTitulo.innerText = info.titulo;
+    if (elDesc) elDesc.innerText = info.descricao;
+    if (elBom) elBom.innerText = info.bom;
+    if (elAtencao) elAtencao.innerText = info.atencao;
+
+    abrirModal('modal-info-metrica');
+};

@@ -199,10 +199,26 @@
                             <option value="tempo">Buscar Tempo Alvo (Sub-X)</option>
                         </select>
                     </div>
-                    <div class="form-group full-width" id="group-tempo-alvo" style="display:none; margin-bottom: 20px;">
-                        <label for="setup-tempo-alvo" style="font-size: 0.8rem;">Tempo Alvo (HH:MM:SS)</label>
-                        <input type="text" id="setup-tempo-alvo" placeholder="Ex: 01:50:00" style="font-size: 1.1rem; padding: 16px;">
-                    </div>
+                    <!-- PASSO 4: Campo de Tempo Alvo Reformulado -->
+<div class="form-group full-width" id="group-tempo-alvo" style="display:none; margin-bottom: 20px;">
+    <label style="font-size: 0.8rem; margin-bottom: 6px; display: block;">Tempo Alvo Desejado</label>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+        <div style="text-align: center;">
+            <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: 700;">HORAS</span>
+            <input type="number" id="setup-tempo-h" min="0" max="10" placeholder="01" inputmode="numeric" style="font-size: 1.1rem; padding: 12px; text-align: center;">
+        </div>
+        <div style="text-align: center;">
+            <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: 700;">MINUTOS</span>
+            <input type="number" id="setup-tempo-m" min="0" max="59" placeholder="45" inputmode="numeric" style="font-size: 1.1rem; padding: 12px; text-align: center;">
+        </div>
+        <div style="text-align: center;">
+            <span style="font-size: 0.7rem; color: var(--text-tertiary); font-weight: 700;">SEGUNDOS</span>
+            <input type="number" id="setup-tempo-s" min="0" max="59" placeholder="00" inputmode="numeric" style="font-size: 1.1rem; padding: 12px; text-align: center;">
+        </div>
+    </div>
+    <!-- Campo Oculto para manter compatibilidade com as funções internas -->
+    <input type="hidden" id="setup-tempo-alvo">
+</div>
                     <div class="form-group full-width" style="margin-bottom: 20px;">
                         <label for="setup-dist-alvo" style="font-size: 0.8rem;">Prova Alvo</label>
                         <select id="setup-dist-alvo" style="font-size: 1.1rem; padding: 16px;">
@@ -269,14 +285,48 @@
         <div class="dashboard-section-title">Análise de Carga</div>
         <div class="card">
             <!-- Grid Reformulada (2 no topo, 3 na base) -->
-            <div class="metrics-grid-reworked">
-                <div class="metric-box highlighted"><div class="metric-value" id="val-ctl">--</div><div class="metric-label">Fitness<br><span style="font-size:9px;">(CTL)</span></div></div>
-                <div class="metric-box highlighted"><div class="metric-value" id="val-atl">--</div><div class="metric-label">Fadiga<br><span style="font-size:9px;">(ATL)</span></div></div>
-                
-                <div class="metric-box"><div class="metric-value" id="val-tsb">--</div><div class="metric-label">Forma<br><span style="font-size:9px;">(TSB)</span></div></div>
-                <div class="metric-box"><div class="metric-value" id="val-acwr">--</div><div class="metric-label">Risco<br><span id="label-acwr" style="font-size:9px;">(ACWR)</span></div></div>
-                <div class="metric-box"><div class="metric-value" id="val-monotonia">--</div><div class="metric-label">Tédio<br><span style="font-size:9px;">(14d)</span></div></div>
-            </div>
+            <!-- Grid Reformulada com Botões de Informação -->
+<div class="metrics-grid-reworked">
+    <div class="metric-box highlighted">
+        <button class="btn-metric-info" onclick="abrirInfoMetrica('ctl')" aria-label="Informações sobre Fitness">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <div class="metric-value" id="val-ctl">--</div>
+        <div class="metric-label">Fitness<br><span style="font-size:9px;">(CTL)</span></div>
+    </div>
+
+    <div class="metric-box highlighted">
+        <button class="btn-metric-info" onclick="abrirInfoMetrica('atl')" aria-label="Informações sobre Fadiga">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <div class="metric-value" id="val-atl">--</div>
+        <div class="metric-label">Fadiga<br><span style="font-size:9px;">(ATL)</span></div>
+    </div>
+                     
+    <div class="metric-box">
+        <button class="btn-metric-info" onclick="abrirInfoMetrica('tsb')" aria-label="Informações sobre Forma">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <div class="metric-value" id="val-tsb">--</div>
+        <div class="metric-label">Forma<br><span style="font-size:9px;">(TSB)</span></div>
+    </div>
+
+    <div class="metric-box">
+        <button class="btn-metric-info" onclick="abrirInfoMetrica('acwr')" aria-label="Informações sobre Risco">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <div class="metric-value" id="val-acwr">--</div>
+        <div class="metric-label">Risco<br><span id="label-acwr" style="font-size:9px;">(ACWR)</span></div>
+    </div>
+
+    <div class="metric-box">
+        <button class="btn-metric-info" onclick="abrirInfoMetrica('monotonia')" aria-label="Informações sobre Tédio">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+        <div class="metric-value" id="val-monotonia">--</div>
+        <div class="metric-label">Tédio<br><span style="font-size:9px;">(14d)</span></div>
+    </div>
+</div>
             
             <div id="insight-coach" class="insight-card"></div>
             
@@ -656,6 +706,33 @@
                 <button type="button" class="btn-reset" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="fecharModal('modal-nova-meta')">Continuar no Modo Manutenção</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- MODAL INFORMATIVO DE MÉTRICAS -->
+<div class="modal-overlay" id="modal-info-metrica" onclick="fecharModaisFora(event, 'modal-info-metrica')">
+    <div class="card modal-card" id="card-info-metrica" onclick="event.stopPropagation()">
+        <div style="width: 36px; height: 4px; background: var(--border-strong); border-radius: 2px; margin: 0 auto 16px auto;"></div>
+        <h2 id="info-metrica-titulo" style="font-size: 1.25rem; color: var(--brand-accent);">--</h2>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 12px;">
+            <div class="expanded-data-box">
+                <span style="color: var(--brand-accent); font-weight: 800; font-size: 0.75rem;">O QUE SIGNIFICA?</span>
+                <p id="info-metrica-desc" style="font-size: 0.88rem; color: var(--text-primary); margin-top: 4px; line-height: 1.5;"></p>
+            </div>
+
+            <div class="expanded-data-box" style="border-left: 3px solid var(--success);">
+                <span style="color: var(--success); font-weight: 800; font-size: 0.75rem;">FAIXA IDEAL / RECOMENDADA</span>
+                <p id="info-metrica-bom" style="font-size: 0.85rem; color: var(--text-primary); margin-top: 4px; line-height: 1.4;"></p>
+            </div>
+
+            <div class="expanded-data-box" style="border-left: 3px solid var(--warning);">
+                <span style="color: var(--warning); font-weight: 800; font-size: 0.75rem;">FAIXA DE ATENÇÃO / ALERTA</span>
+                <p id="info-metrica-atencao" style="font-size: 0.85rem; color: var(--text-primary); margin-top: 4px; line-height: 1.4;"></p>
+            </div>
+        </div>
+
+        <button type="button" class="btn-secondary" style="margin-top: 24px;" onclick="fecharModal('modal-info-metrica')">Entendi</button>
     </div>
 </div>
 

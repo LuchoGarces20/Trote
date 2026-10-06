@@ -503,11 +503,32 @@ class RunningCoach {
     _tempoStringParaMinutos(str) {
         if (typeof str === 'number') return Math.max(0, str);
         if (!str || typeof str !== 'string') return 0;
-        const pts = str.split(':').map(v => parseFloat(v));
-        if (pts.some(isNaN)) return 0;
-        if (pts.length === 2) return pts[0] + (pts[1] / 60);
-        if (pts.length === 3) return (pts[0] * 60) + pts[1] + (pts[2] / 60);
-        return parseFloat(str) || 0;
+        
+        const cleanStr = str.toLowerCase().replace(/\s/g, '');
+        
+        // Lê os formatos amigáveis como "1h30m", "45min"
+        if (cleanStr.includes('h') || cleanStr.includes('m')) {
+            let horas = 0;
+            let minutos = 0;
+            
+            const matchH = cleanStr.match(/(\d+(?:\.\d+)?)h/);
+            if (matchH) horas = parseFloat(matchH[1]);
+            
+            const matchM = cleanStr.match(/(\d+(?:\.\d+)?)(?:m|min)/);
+            if (matchM) minutos = parseFloat(matchM[1]);
+            
+            if (matchH || matchM) {
+                return (horas * 60) + minutos;
+            }
+        }
+        
+        // Fallback original para o formato com ":"
+        const pts = cleanStr.split(':').map(v => parseFloat(v));
+        if (pts.some(isNaN)) return parseFloat(cleanStr) || 0; 
+        if (pts.length === 2) return pts[0] + (pts[1] / 60); 
+        if (pts.length === 3) return (pts[0] * 60) + pts[1] + (pts[2] / 60); 
+        
+        return parseFloat(cleanStr) || 0;
     }
 
     _minutosParaTempoString(minutosTotais) {

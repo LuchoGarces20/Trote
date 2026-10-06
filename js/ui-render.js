@@ -267,29 +267,62 @@ function _gerarHtmlProgressoSemanal(hojeISO) {
 function renderizarCardHoje(hojeISO, zonas) {
     const uiHoje = document.getElementById('ui-hoje');
     if (!uiHoje) return;
-
     uiHoje.classList.add('today-card');
     const progressHtml = _gerarHtmlProgressoSemanal(hojeISO);
     
-    let treinoHoje = Array.isArray(app.state.plano) 
+    let treinoHoje = Array.isArray(app.state.plano)
         ? (app.state.plano.find(t => t && t.dataISO === hojeISO && t.tipo !== "Descanso") || app.state.plano.find(t => t && t.dataISO === hojeISO))
         : null;
-
+        
     const dataFimISO = app.state.prova ? app.state.prova.dataStr : null;
     if (!treinoHoje && dataFimISO && hojeISO >= app.state.atleta.dataInicioISO && hojeISO <= dataFimISO) {
         treinoHoje = { dataISO: hojeISO, tipo: "Descanso", distanciaBase: 0, prescricao: "O ganho de performance ocorre no repouso.", estrutura: [], concluido: false };
     }
 
+    // Puxa a musculação logo no início para definirmos a hierarquia da tela
+    const lembreteForca = app.obterTreinoForca(hojeISO);
+
     if (!treinoHoje) {
         uiHoje.removeAttribute('data-intensity');
         uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Ciclo Concluído</h2><p class="today-desc">Jornada finalizada com sucesso!</p>`;
+    
     } else if (treinoHoje.concluido) {
         uiHoje.removeAttribute('data-intensity');
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc">Sessão finalizada. Foco no descanso.</p>${progressHtml}`;
+        
+        // Bônus UX: Se já correu mas tem musculação, alerta no card de finalizado
+        const hintForca = lembreteForca ? `<div class="card-lembrete-forca" style="margin-top: 16px; width: 100%;"><strong>Falta a Força:</strong> Não se esqueça do seu treino de <span class="text-highlight-forca">${lembreteForca}</span> hoje.</div>` : '';
+        
+        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc" style="margin-bottom: 10px;">Sessão de corrida finalizada.</p>${hintForca}${progressHtml}`;
+        
     } else if (treinoHoje.tipo === "Descanso") {
         uiHoje.removeAttribute('data-intensity');
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Recovery</h2><div class="today-rest"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div><p class="today-desc">O ganho de performance ocorre no repouso.</p>${progressHtml}`;
+        
+        if (lembreteForca) {
+            // Nova Interface: Dia exclusivo de Musculação
+            uiHoje.innerHTML = `
+                <div class="phase-badge" style="background: rgba(139, 92, 246, 0.15); color: #8B5CF6; border-color: #8B5CF6;">Sem Corrida</div>
+                <div class="today-date">${formatarDataHoje()}</div>
+                <h2 class="today-type" style="margin-top: 4px;">Musculação</h2>
+                <div class="today-rest" style="color: #8B5CF6; text-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);">
+                    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="7" width="4" height="10" rx="1"></rect>
+                        <rect x="18" y="7" width="4" height="10" rx="1"></rect>
+                        <line x1="6" y1="12" x2="18" y2="12"></line>
+                    </svg>
+                </div>
+                <div class="card-lembrete-forca" style="margin-bottom: 24px; width: 100%;">
+                    <strong>Seu treino de hoje:</strong> <span class="text-highlight-forca">${lembreteForca}</span>
+                </div>
+                <p class="today-desc" style="margin-top: 0; margin-bottom: 30px;">Fortalecer a base previne lesões e otimiza sua corrida.</p>
+                ${progressHtml}
+            `;
+        } else {
+            // Dia de Descanso Puro Original
+            uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Recovery</h2><div class="today-rest"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div><p class="today-desc">O ganho de performance ocorre no repouso.</p>${progressHtml}`;
+        }
+        
     } else {
+        // Treino de corrida ativo (Mantido exatamente igual)
         const tipo = treinoHoje.tipo || "Rodagem";
         const ehTimeTrial = tipo.includes("Time Trial") || tipo.includes("Teste");
         const intensityKey = ehTimeTrial ? "timetrial" : (tipo.includes("Intervalado") || tipo.includes("Tiros") || tipo.includes("Subidas") ? "z5-tiros" : (tipo.includes("Tempo") || tipo.includes("Cruise") || tipo.includes("Fartlek") || tipo === "PROVA ALVO" ? "z3-z4" : "z1-z2"));
@@ -302,9 +335,8 @@ function renderizarCardHoje(hojeISO, zonas) {
         const infoZona = zonas[tipo] || {};
         const eEsteira = !!app.state.modoEsteira;
 
-        // Estimar tempo total em minutos para o treino de hoje
         let tempoEstimadoMin = 45;
-        if (infoZona.pace && infoZona.pace !== "-" && !infoZona.pace.includes("Variado") && !infoZona.pace.includes("Máx")) {
+        if (infoZona.pace && infoZona.pace !== "-" && !infoZona.pace.includes("Variado") && !infoZona.pace.includes("Máx") && !infoZona.pace.includes("M x")) {
             const paceStr = infoZona.pace.split(' ')[0].replace('/km', '');
             const paceSeg = (typeof app._paceParaSegundos === 'function') ? app._paceParaSegundos(paceStr) : 330;
             tempoEstimadoMin = Math.round((paceSeg * distCalculada) / 60);
@@ -314,12 +346,10 @@ function renderizarCardHoje(hojeISO, zonas) {
         }
         if (isNaN(tempoEstimadoMin) || tempoEstimadoMin <= 0) tempoEstimadoMin = 30;
 
-        // Hero Metric: Em modo esteira destaca o TEMPO, em modo rua destaca a DISTÂNCIA
         const heroHtml = eEsteira 
             ? `<div class="hero-distance-huge">${tempoEstimadoMin}<span>min</span></div>`
             : `<div class="hero-distance-huge">${distCalculada}<span>km</span></div>`;
 
-        // Today Metrics Grid: Destaque para Velocidade e Tempo/Distância
         const rotuloRitmo = eEsteira ? 'Velocidade' : 'Pace';
         const metricsHtml = eEsteira
             ? `<div class="today-metrics">
@@ -331,7 +361,6 @@ function renderizarCardHoje(hojeISO, zonas) {
                 <div class="today-metrics-card secondary-metric"><div class="metric-label">Zona & FC Esperada</div><strong class="metric-val">${infoZona.fc || '-'}</strong></div>
                </div>`;
 
-        // Estrutura do Treino adaptada para modo esteira se necessário
         let htmlEstrutura = '';
         if (Array.isArray(treinoHoje.estrutura) && treinoHoje.estrutura.length > 0) {
             const tituloEstrutura = eEsteira ? "Execução na Esteira (Tempo & Velocidade)" : "Execução Estruturada";
@@ -347,10 +376,9 @@ function renderizarCardHoje(hojeISO, zonas) {
                 });
             });
             htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">${tituloEstrutura}</div>` + 
-                 blocosProcessados.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
+                  blocosProcessados.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
         }
 
-        const lembreteForca = app.obterTreinoForca(hojeISO);
         const hintForca = lembreteForca ? `<div class="card-lembrete-forca"><strong>Lembrete de Força:</strong> Hoje é dia de <span class="text-highlight-forca">${lembreteForca}</span>.</div>` : '';
         
         const tenisIdSugerido = app.obterTenisSugerido(tipo);
@@ -368,19 +396,16 @@ function renderizarCardHoje(hojeISO, zonas) {
             <div class="today-date">${formatarDataHoje()}</div>
             <h2 class="today-type" style="margin-top:4px;">${tipo}</h2>
             ${heroHtml}
-
             ${metricsHtml}
-
             <div class="guia-sensacao-box"><strong>Guia de Sensação:</strong><br>${infoZona.guia || ''}</div>
             
             ${htmlEstrutura}${hintForca}${hintTenis}
             
             <p class="today-desc today-desc-small">"${treinoHoje.prescricao || ''}"</p>
             
-            <!-- ATALHO REGISTRO RÁPIDO (1-TAP LOG) -->
             <button class="btn-giant btn-quick-log" onclick="app.registrarComoPrescrito(${treinoHoje.id})">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-                Concluí como Prescrito (1-Tap)
+                Concluir como Prescrito (1-Tap)
             </button>
             <button class="btn-secondary" style="margin-top:0;" onclick="abrirTreino(${treinoHoje.id}, '${tipo}', ${distCalculada})">Ajustar & Registrar Manualmente</button>
             ${progressHtml}

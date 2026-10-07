@@ -1,6 +1,7 @@
 // ==========================================
 // GERENCIADOR DE ESTADO & CONTROLADOR (STATE - BLINDAGEM TOTAL)
 // ==========================================
+
 class RunningCoach {
     constructor() {
         this.STORAGE_KEY = 'trote_coach_state_v2';
@@ -55,6 +56,7 @@ class RunningCoach {
         if (!this.state.prova || typeof this.state.prova !== 'object') {
             this.state.prova = { distanciaKm: 10, dataStr: getLocalISODate(), tipoMeta: 'concluir', tempoAlvoStr: '' };
         }
+
         const a = this.state.atleta;
         if (!Array.isArray(a.tenis)) a.tenis = [];
         if (!Array.isArray(a.historicoCTL)) a.historicoCTL = [];
@@ -76,6 +78,7 @@ class RunningCoach {
         if (!Array.isArray(this.state.plano)) this.state.plano = [];
         if (!Array.isArray(this.state.treinosRealizados)) this.state.treinosRealizados = [];
         if (!Array.isArray(this.state.logs)) this.state.logs = [];
+
         if (this.state.modoEsteira === undefined) this.state.modoEsteira = false;
         if (this.state.emManutencao === undefined) this.state.emManutencao = false;
     }
@@ -163,19 +166,25 @@ class RunningCoach {
         const treinosOrdenados = [...this.state.treinosRealizados].sort((a,b) => new Date(b.dataISO) - new Date(a.dataISO));
         
         if (!treinosOrdenados[0] || !treinosOrdenados[0].dataISO) return;
-        const ultimaData = parseLocalDate(treinosOrdenados[0].dataISO);
-        const diasInativo = Math.ceil((parseLocalDate(hojeISO) - ultimaData) / (1000 * 60 * 60 * 24));
+        
+        const ultimaDataISO = treinosOrdenados[0].dataISO;
+        // Usa função robusta de dias ISO
+        const diasInativo = typeof diferencaDiasISO === 'function' ? diferencaDiasISO(ultimaDataISO, hojeISO) : 0;
         
         if (diasInativo >= 21) {
-            this.state.atleta.volSemanal = Math.max(5, parseFloat((this.state.atleta.volSemanal * 0.5).toFixed(1)));
-            this.state.atleta.dataInicioISO = hojeISO;
-            this.state.plano = CoachPlanner.gerarPlano(this.state.atleta, this.state.prova);
-            this.state.logs.unshift({
-                data: formatarDataHoje(),
-                msg: `Inatividade severa detectada (${diasInativo} dias sem treino). Macrociclo reajustado com rampa de segurança.`
-            });
-            this.recalcularFisiologia();
-            this.saveState();
+            // ISSUE 12: Impede o corte duplo no mesmo dia
+            const checkJaAjustado = this.state.logs.some(l => l.data === formatarDataHoje() && l.msg.includes("Inatividade severa"));
+            if (!checkJaAjustado) {
+                this.state.atleta.volSemanal = Math.max(5, parseFloat((this.state.atleta.volSemanal * 0.5).toFixed(1)));
+                this.state.atleta.dataInicioISO = hojeISO;
+                this.state.plano = CoachPlanner.gerarPlano(this.state.atleta, this.state.prova);
+                this.state.logs.unshift({
+                    data: formatarDataHoje(),
+                    msg: `Inatividade severa detectada (${diasInativo} dias sem treino). Macrociclo reajustado com rampa de segurança.`
+                });
+                this.recalcularFisiologia();
+                this.saveState();
+            }
         }
     }
 
@@ -185,6 +194,7 @@ class RunningCoach {
             this.registrarTreino(parseInt(idReferencia, 10), dist, tempoMin, rpe, tenisId, fc);
             return;
         }
+
         const treino = this.state.treinosRealizados.find(t => t && t.idReferencia === idReferencia);
         if (treino) {
             const distNum = Math.max(0.01, parseFloat(dist) || 0);
@@ -221,6 +231,9 @@ class RunningCoach {
         if (!this.state) return;
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (!treinoPlano) return;
+        
+        // ISSUE 12: Impede que cliques duplos registrem múltiplas vezes
+        if (treinoPlano.concluido) return;
         
         const distNum = Math.max(0.01, parseFloat(dist) || 0);
         const tempoMinNum = Math.max(1, parseFloat(tempoMin) || 1);
@@ -260,7 +273,7 @@ class RunningCoach {
     registrarComoPrescrito(idPlano) {
         if (!this.state || !Array.isArray(this.state.plano)) return;
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
-        if (!treinoPlano) return;
+        if (!treinoPlano || treinoPlano.concluido) return;
         
         const multVol = parseFloat(this.state.atleta?.multiplicadorVolume) || 1.0;
         const distNum = parseFloat(((parseFloat(treinoPlano.distanciaBase) || 0) * multVol).toFixed(1));
@@ -270,7 +283,7 @@ class RunningCoach {
         const zonas = this.obterZonasKarvonen();
         let tempoMin = 45;
         
-        if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("M x")) {
+        if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("Máx")) {
             const partesPace = zonas[tipo].pace.split('/km')[0].split('-').map(p => p.trim());
             if (partesPace.length === 2) {
                 const seg1 = this._paceParaSegundos(partesPace[0]);
@@ -361,7 +374,6 @@ class RunningCoach {
         if (!this.state) return;
         const paceNum = Math.max(60, parseFloat(paceSeg) || 330);
         
-        // Conversão automática para km/h no modo esteira
         let paceStr;
         if (this.state.modoEsteira) {
             paceStr = (3600 / paceNum).toFixed(1);
@@ -377,25 +389,26 @@ class RunningCoach {
         if (elPace) elPace.innerText = paceStr;
         if (elUnit) elUnit.innerText = this.state.modoEsteira ? 'km/h' : '/km';
 
+        // ISSUE 11: Padronização idêntica entre simulador e Zonas Karvonen
         if (elHr && elZone) {
             const base = Math.max(60, parseFloat(this.state.atleta.paceBaseSegundos) || 330);
             const rep = Math.max(30, parseFloat(this.state.atleta.fcRepouso) || 60);
             const max = Math.max(rep + 10, parseFloat(this.state.atleta.fcMax) || 185);
             
+            const ratio = paceNum / base;
             let perc = 0.65;
-            if (paceNum <= base - 45) perc = 0.95;
-            else if (paceNum <= base - 15) perc = 0.88;
-            else if (paceNum <= base + 15) perc = 0.80;
-            else if (paceNum <= base + 45) perc = 0.72;
-            else perc = 0.60;
+            let zoneTxt = "";
+
+            if (ratio <= 0.80) { perc = 0.96; zoneTxt = "Z5+ - Velocidade/Sprint"; }
+            else if (ratio <= 0.90) { perc = 0.91; zoneTxt = "Z5 - VO2/Anaeróbico"; }
+            else if (ratio <= 0.97) { perc = 0.85; zoneTxt = "Z4 - Limiar"; }
+            else if (ratio <= 1.08) { perc = 0.79; zoneTxt = "Z3 - Ritmo Maratona"; }
+            else if (ratio <= 1.20) { perc = 0.72; zoneTxt = "Z2 - Rodagem Leve"; }
+            else { perc = 0.64; zoneTxt = "Z1 - Regenerativo"; }
             
             const hr = Math.round(rep + perc * (max - rep));
             elHr.innerText = isNaN(hr) ? '--' : hr;
-            
-            if (perc >= 0.9) elZone.innerText = "Z5 - VO2/Anaeróbico";
-            else if (perc >= 0.8) elZone.innerText = "Z4 - Limiar";
-            else if (perc >= 0.7) elZone.innerText = "Z3 - Tempo";
-            else elZone.innerText = "Z1/Z2 - Aeróbico Leve";
+            elZone.innerText = zoneTxt;
         }
     }
 
@@ -408,12 +421,18 @@ class RunningCoach {
 
     recalcularFisiologia() {
         if (!this.state) return;
+        const ctlIni = parseFloat(this.state.atleta.historicoCTL[0]?.ctl) || 0;
+        const atlIni = parseFloat(this.state.atleta.historicoCTL[0]?.atl) || 0;
+        
         this.state.atleta.historicoCTL = CoachPhysiology.recalcularHistoricoCTL(
             this.state.atleta.historicoCTL,
             this.state.treinosRealizados,
-            this.state.atleta.ctl,
-            this.state.atleta.atl
+            this.state.plano, // Envia o plano
+            this.state.atleta, // Envia o atleta
+            ctlIni,
+            atlIni
         );
+
         const hojeISO = getLocalISODate();
         const hojestat = (Array.isArray(this.state.atleta.historicoCTL) 
             ? this.state.atleta.historicoCTL.find(h => h && h.dataISO === hojeISO) 
@@ -469,7 +488,6 @@ class RunningCoach {
         return CoachPlanner.obterTenisSugerido(tipoTreino, this.state.atleta.tenis);
     }
 
-    // Correção: A função adicionarTenis estava sem a chave final
     adicionarTenis(nome, categoria, kmInicial = 0) {
         if (!this.state) return;
         const km = Math.max(0, parseFloat(kmInicial) || 0);
@@ -481,7 +499,7 @@ class RunningCoach {
             aposentado: false
         });
         this.saveState();
-    } 
+    }
 
     editarTenis(id, nome, categoria, kmAcumulados) {
         if (!this.state || !Array.isArray(this.state.atleta.tenis)) return;
@@ -500,33 +518,32 @@ class RunningCoach {
         if (tenis) { tenis.aposentado = true; this.saveState(); }
     }
 
+    // ISSUE 10: Conversão impecável de texto p/ minutos c/ suporte a hh:mm:ss e "1h30m"
     _tempoStringParaMinutos(str) {
         if (typeof str === 'number') return Math.max(0, str);
         if (!str || typeof str !== 'string') return 0;
         
         const cleanStr = str.toLowerCase().replace(/\s/g, '');
         
-        // Lê os formatos amigáveis como "1h30m", "45min"
-        if (cleanStr.includes('h') || cleanStr.includes('m')) {
-            let horas = 0;
-            let minutos = 0;
-            
+        let h = 0, m = 0, s = 0;
+        if (cleanStr.includes('h') || cleanStr.includes('m') || cleanStr.includes('s')) {
             const matchH = cleanStr.match(/(\d+(?:\.\d+)?)h/);
-            if (matchH) horas = parseFloat(matchH[1]);
+            if (matchH) h = parseFloat(matchH[1]);
             
             const matchM = cleanStr.match(/(\d+(?:\.\d+)?)(?:m|min)/);
-            if (matchM) minutos = parseFloat(matchM[1]);
+            if (matchM) m = parseFloat(matchM[1]);
             
-            if (matchH || matchM) {
-                return (horas * 60) + minutos;
-            }
+            const matchS = cleanStr.match(/(\d+(?:\.\d+)?)(?:s|sec)/);
+            if (matchS) s = parseFloat(matchS[1]);
+            
+            return (h * 60) + m + (s / 60);
         }
         
-        // Fallback original para o formato com ":"
         const pts = cleanStr.split(':').map(v => parseFloat(v));
-        if (pts.some(isNaN)) return parseFloat(cleanStr) || 0; 
-        if (pts.length === 2) return pts[0] + (pts[1] / 60); 
-        if (pts.length === 3) return (pts[0] * 60) + pts[1] + (pts[2] / 60); 
+        if (pts.some(isNaN)) return parseFloat(cleanStr) || 0;
+        
+        if (pts.length === 2) return pts[0] + (pts[1] / 60);
+        if (pts.length === 3) return (pts[0] * 60) + pts[1] + (pts[2] / 60);
         
         return parseFloat(cleanStr) || 0;
     }
@@ -534,8 +551,12 @@ class RunningCoach {
     _minutosParaTempoString(minutosTotais) {
         const total = Math.max(0, parseFloat(minutosTotais) || 0);
         const h = Math.floor(total / 60);
-        const m = Math.round(total % 60);
-        return h > 0 ? `${h}h${m < 10 ? '0' : ''}${m}m` : `${m}min`;
+        const m = Math.floor(total % 60);
+        const s = Math.round((total * 60) % 60);
+        
+        const sStr = s > 0 ? `${s < 10 ? '0'+s : s}s` : '';
+        if (h > 0) return `${h}h${m < 10 ? '0'+m : m}m${sStr}`;
+        return `${m}m${sStr}`;
     }
 
     _paceParaSegundos(str) {
@@ -560,10 +581,13 @@ class RunningCoach {
         
         const tempoTotalSeg = tempoMinValido * 60;
         const distRef10k = 10;
-        const tempoEst10kSeg = tempoTotalSeg * Math.pow(distRef10k / distValida, 1 / 1.06);
+        
+        // ISSUE 11: Correção do expoente de Riegel para estimativa limiar
+        const tempoEst10kSeg = tempoTotalSeg * Math.pow(distRef10k / distValida, 1.06);
         const ritmoLimiarSeg = Math.max(60, Math.round(tempoEst10kSeg / distRef10k));
         
         this.state.atleta.paceBaseSegundos = ritmoLimiarSeg;
+
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (treinoPlano) treinoPlano.concluido = true;
         

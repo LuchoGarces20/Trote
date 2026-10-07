@@ -1,83 +1,101 @@
 // ==========================================
 // MOTOR DE FISIOLOGIA E MODELOS MATEMÁTICOS (BLINDAGEM TOTAL V2)
 // ==========================================
+
 const CoachPhysiology = {
     obterZonasKarvonen(paceBaseSeg, fcRepouso = 60, fcMax = 185, modoEsteira = false) {
-    const rep = Math.max(30, Math.min(120, parseInt(fcRepouso, 10) || 60));
-    const max = Math.max(rep + 10, Math.min(230, parseInt(fcMax, 10) || 185));
-    const paceSanitizado = Math.max(60, Math.min(1200, parseFloat(paceBaseSeg) || 300));
+        const rep = Math.max(30, Math.min(120, parseInt(fcRepouso, 10) || 60));
+        const max = Math.max(rep + 10, Math.min(230, parseInt(fcMax, 10) || 185));
+        const paceSanitizado = Math.max(60, Math.min(1200, parseFloat(paceBaseSeg) || 300));
 
-    const trimp = (porcentagem) => {
-        const pct = Math.max(0, Math.min(100, parseFloat(porcentagem) || 0));
-        return Math.round(rep + (pct / 100) * (max - rep));
-    };
-
-    // Função auxiliar para calcular e formatar o intervalo de ritmo/velocidade
-    const formatarRange = (segMin, segMax) => {
-        if (modoEsteira) {
-            // Em esteira: velocidade menor (mais lenta) até velocidade maior (mais rápida)
-            const velMin = (3600 / segMax).toFixed(1);
-            const velMax = (3600 / segMin).toFixed(1);
-            return `${velMin} - ${velMax} km/h`;
-        }
-
-        // Na rua: converte os limites em formato MM:SS
-        const formatarSeg = (segundos) => {
-            const min = Math.floor(segundos / 60);
-            const seg = Math.round(segundos % 60);
-            return `${min}:${seg < 10 ? '0' : ''}${seg}`;
+        const trimp = (porcentagem) => {
+            const pct = Math.max(0, Math.min(100, parseFloat(porcentagem) || 0));
+            return Math.round(rep + (pct / 100) * (max - rep));
         };
 
-        return `${formatarSeg(segMin)} - ${formatarSeg(segMax)} /km`;
-    };
+        const formatarRange = (segMin, segMax) => {
+            if (modoEsteira) {
+                const velMin = (3600 / segMax).toFixed(1);
+                const velMax = (3600 / segMin).toFixed(1);
+                return `${velMin} - ${velMax} km/h`;
+            }
+            const formatarSeg = (segundos) => {
+                const min = Math.floor(segundos / 60);
+                const seg = Math.round(segundos % 60);
+                return `${min}:${seg < 10 ? '0' : ''}${seg}`;
+            };
+            return `${formatarSeg(segMin)} - ${formatarSeg(segMax)} /km`;
+        };
 
-    return {
-        "Regenerativo": {
-            pace: formatarRange(paceSanitizado * 1.20, paceSanitizado * 1.30),
-            fc: `${trimp(60)} - ${trimp(68)} bpm (Z1)`,
-            guia: "Conversacional fluida. Esforço muito leve (3-4/10)."
-        },
-        "Rodagem Leve": {
-            pace: formatarRange(paceSanitizado * 1.10, paceSanitizado * 1.20),
-            fc: `${trimp(68)} - ${trimp(76)} bpm (Z2)`,
-            guia: "Ritmo confortável. Respiração controlada (4-5/10)."
-        },
-        "Ritmo Maratona": {
-            pace: formatarRange(paceSanitizado * 1.02, paceSanitizado * 1.08),
-            fc: `${trimp(76)} - ${trimp(82)} bpm (Z3)`,
-            guia: "Ritmo sustentável de prova longa. Foco mental (6/10)."
-        },
-        "Limiar Anaeróbico": {
-            pace: formatarRange(paceSanitizado * 0.93, paceSanitizado * 0.97),
-            fc: `${trimp(82)} - ${trimp(88)} bpm (Z4)`,
-            guia: "Desconfortável, fala apenas frases curtas (7-8/10)."
-        },
-        "Intervalado VO2": {
-            pace: formatarRange(paceSanitizado * 0.85, paceSanitizado * 0.90),
-            fc: `${trimp(88)} - ${trimp(95)} bpm (Z5)`,
-            guia: "Esforço muito forte/ofegante. Foco total (9/10)."
-        },
-        "Tiros de Velocidade": {
-            pace: formatarRange(paceSanitizado * 0.75, paceSanitizado * 0.80),
-            fc: `> ${trimp(95)} bpm (Z5+)`,
-            guia: "Sprint máximo/quase máximo com boa técnica (10/10)."
-        }
-    };
-},
+        return {
+            "Regenerativo": {
+                pace: formatarRange(paceSanitizado * 1.20, paceSanitizado * 1.30),
+                segundosMedio: (paceSanitizado * 1.20 + paceSanitizado * 1.30) / 2,
+                fc: `${trimp(60)} - ${trimp(68)} bpm (Z1)`,
+                guia: "Conversacional fluida. Esforço muito leve (3-4/10)."
+            },
+            "Rodagem Leve": {
+                pace: formatarRange(paceSanitizado * 1.10, paceSanitizado * 1.20),
+                segundosMedio: (paceSanitizado * 1.10 + paceSanitizado * 1.20) / 2,
+                fc: `${trimp(68)} - ${trimp(76)} bpm (Z2)`,
+                guia: "Ritmo confortável. Respiração controlada (4-5/10)."
+            },
+            "Ritmo Maratona": {
+                pace: formatarRange(paceSanitizado * 1.02, paceSanitizado * 1.08),
+                segundosMedio: (paceSanitizado * 1.02 + paceSanitizado * 1.08) / 2,
+                fc: `${trimp(76)} - ${trimp(82)} bpm (Z3)`,
+                guia: "Ritmo sustentável de prova longa. Foco mental (6/10)."
+            },
+            "Limiar Anaeróbico": {
+                pace: formatarRange(paceSanitizado * 0.93, paceSanitizado * 0.97),
+                segundosMedio: (paceSanitizado * 0.93 + paceSanitizado * 0.97) / 2,
+                fc: `${trimp(82)} - ${trimp(88)} bpm (Z4)`,
+                guia: "Desconfortável, fala apenas frases curtas (7-8/10)."
+            },
+            "Intervalado VO2": {
+                pace: formatarRange(paceSanitizado * 0.85, paceSanitizado * 0.90),
+                segundosMedio: (paceSanitizado * 0.85 + paceSanitizado * 0.90) / 2,
+                fc: `${trimp(88)} - ${trimp(95)} bpm (Z5)`,
+                guia: "Esforço muito forte/ofegante. Foco total (9/10)."
+            },
+            "Tiros de Velocidade": {
+                pace: formatarRange(paceSanitizado * 0.75, paceSanitizado * 0.80),
+                segundosMedio: (paceSanitizado * 0.75 + paceSanitizado * 0.80) / 2,
+                fc: `> ${trimp(95)} bpm (Z5+)`,
+                guia: "Sprint máximo/quase máximo com boa técnica (10/10)."
+            }
+        };
+    },
 
-    recalcularHistoricoCTL(historicoCTL, treinosRealizados, ctlInicial = 20, atlInicial = 20, dataInicioISO = null) {
+    recalcularHistoricoCTL(historicoCTL, treinosRealizados, planoFuturo, atleta, ctlInicial = 20, atlInicial = 20, dataInicioISO = null) {
         if (!Array.isArray(historicoCTL) || historicoCTL.length === 0) return [];
         
+        const hojeISO = getLocalISODate();
         const treinosMap = new Map();
-        if (Array.isArray(treinosRealizados) && treinosRealizados.length > 0) {
-            for (let i = 0; i < treinosRealizados.length; i++) {
-                const t = treinosRealizados[i];
-                if (t && t.dataISO) treinosMap.set(t.dataISO, t);
+        if (Array.isArray(treinosRealizados)) {
+            for (const t of treinosRealizados) {
+                if (t && t.dataISO) {
+                    const currentTss = treinosMap.get(t.dataISO) || 0;
+                    treinosMap.set(t.dataISO, currentTss + Math.max(0, parseFloat(t.tss) || 0));
+                }
             }
         }
 
-        let ctl = Math.max(0, parseFloat(ctlInicial) || 20);
-        let atl = Math.max(0, parseFloat(atlInicial) || 20);
+        const planoMap = new Map();
+        if (Array.isArray(planoFuturo)) {
+            for (const p of planoFuturo) {
+                if (p && p.dataISO > hojeISO && p.tipo !== "Descanso" && p.distanciaBase > 0) {
+                    // Estima o TSS do treino planejado usando RPE médio 6 e o pace base
+                    const paceBase = atleta?.paceBaseSegundos || 330;
+                    const tempoEst = (p.distanciaBase * paceBase) / 60;
+                    const estTss = this.calcularTSS(tempoEst, 6, null, atleta);
+                    planoMap.set(p.dataISO, estTss);
+                }
+            }
+        }
+
+        let ctl = Math.max(0, parseFloat(ctlInicial) || 0);
+        let atl = Math.max(0, parseFloat(atlInicial) || 0);
         let startIndex = 0;
         
         if (dataInicioISO) {
@@ -95,8 +113,14 @@ const CoachPhysiology = {
 
         for (let i = startIndex; i < historicoCTL.length; i++) {
             const dia = historicoCTL[i] || {};
-            const treinoDoDia = treinosMap.get(dia.dataISO);
-            const tss = treinoDoDia ? Math.max(0, parseFloat(treinoDoDia.tss) || 0) : 0;
+            let tss = 0;
+            const ehFuturo = dia.dataISO > hojeISO;
+
+            if (ehFuturo) {
+                tss = planoMap.get(dia.dataISO) || 0;
+            } else {
+                tss = treinosMap.get(dia.dataISO) || 0;
+            }
             
             ctl = ctl + (tss - ctl) * kCTL;
             atl = atl + (tss - atl) * kATL;
@@ -104,6 +128,7 @@ const CoachPhysiology = {
 
             historicoCTL[i] = {
                 ...dia,
+                ehFuturo: ehFuturo,
                 tss: Math.round(tss),
                 ctl: parseFloat(ctl.toFixed(1)) || 0,
                 atl: parseFloat(atl.toFixed(1)) || 0,
@@ -114,24 +139,40 @@ const CoachPhysiology = {
     },
 
     calcularMonotoniaEFoster(treinosRealizadosSemana) {
-        if (!Array.isArray(treinosRealizadosSemana) || treinosRealizadosSemana.length === 0) {
+        if (!Array.isArray(treinosRealizadosSemana)) {
             return { monotonia: 0, foster: 0 };
         }
-        const cargas = treinosRealizadosSemana.map(t => Math.max(0, parseFloat(t?.tss) || 0));
+
+        const mapDias = {};
+        treinosRealizadosSemana.forEach(t => {
+            if (t && t.dataISO) {
+                mapDias[t.dataISO] = (mapDias[t.dataISO] || 0) + Math.max(0, parseFloat(t?.tss) || 0);
+            }
+        });
+
+        // ISSUE 9: Tratar rigorosamente 7 dias (incluindo folgas) e evitar div/0
+        const cargas = Object.values(mapDias);
+        while (cargas.length < 7) cargas.push(0);
+
         const soma = cargas.reduce((a, b) => a + b, 0);
         const media = soma / 7;
         const variancia = cargas.reduce((acc, val) => acc + Math.pow(val - media, 2), 0) / 7;
         const desvioPadrao = Math.sqrt(variancia);
         
-        const monotonia = (desvioPadrao > 0.001) ? parseFloat((media / desvioPadrao).toFixed(2)) : 0;
+        let monotonia = 0;
+        if (media > 0) {
+            monotonia = parseFloat((media / Math.max(0.001, desvioPadrao)).toFixed(2));
+        }
+
         const foster = Math.round(soma * monotonia);
-        return { monotonia: isNaN(monotonia) ? 0 : monotonia, foster: isNaN(foster) ? 0 : foster };
+        return { monotonia, foster: isNaN(foster) ? 0 : foster };
     },
 
     calcularPrevisoesRiegel(paceBaseSeg, distAlvoCustom = null) {
         const paceSanitizado = Math.max(60, Math.min(1200, parseFloat(paceBaseSeg) || 300));
         const distRef = 5;
         const tempoRefSeg = paceSanitizado * distRef;
+
         const provas = [
             { nome: '5k', dist: 5 },
             { nome: '10k', dist: 10 },
@@ -173,6 +214,7 @@ const CoachPhysiology = {
         if (!fazMusculacao || divisaoMusculacao === 'nenhum' || !Array.isArray(diasMusculacao) || diasMusculacao.length === 0) {
             return null;
         }
+
         const dAtual = parseLocalDate(dataISO);
         const diaSemana = dAtual.getDay();
         if (!diasMusculacao.includes(diaSemana)) return null;
@@ -183,9 +225,11 @@ const CoachPhysiology = {
             'abc': ['Treino A (Quadríceps)', 'Treino B (Posteriores)', 'Treino C (Superiores/Core)'],
             'abcd': ['Treino A (Quadríceps e Panturrilhas)', 'Treino B (Peito e Tríceps)', 'Treino C (Posterior e Glúteos)', 'Treino D (Costas e Bíceps)']
         };
+
         const listaSessoes = rotinas[divisaoMusculacao] || rotinas['fullbody'];
         const idxIndex = diasMusculacao.indexOf(diaSemana);
         const idx = (idxIndex >= 0 ? idxIndex : 0) % listaSessoes.length;
+        
         return listaSessoes[idx];
     },
 

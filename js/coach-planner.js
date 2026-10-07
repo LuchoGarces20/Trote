@@ -1,6 +1,7 @@
 // ==========================================
-// GERADOR DE PLANOS DE TREINO & MACROCICLOS (BLINDAGEM TOTAL V3)
+// GERADOR DE PLANOS DE TREINO & MACROCICLOS (BLINDAGEM TOTAL V4)
 // ==========================================
+
 const CoachPlanner = {
     _ehTreinoPernas(dataISO, atleta) {
         if (!atleta || !atleta.fazMusculacao) return false;
@@ -27,7 +28,7 @@ const CoachPlanner = {
         const dataFim = parseLocalDate(prv.dataStr);
         
         let diffDias = Math.ceil((dataFim - dataInicio) / (1000 * 60 * 60 * 24)) + 1;
-        if (isNaN(diffDias) || diffDias < 7) diffDias = 28; // Fallback para 4 semanas mínimas
+        if (isNaN(diffDias) || diffDias < 7) diffDias = 28; 
         
         const totalDias = diffDias;
         const totalSemanas = Math.max(1, Math.ceil(totalDias / 7));
@@ -40,6 +41,8 @@ const CoachPlanner = {
         const distProva = Math.max(1.0, parseFloat(prv.distanciaKm) || 10.0);
         const multVol = Math.max(0.5, Math.min(2.0, parseFloat(atl.multiplicadorVolume) || 1.0));
         
+        const isMetaTempo = prv.tipoMeta === 'tempo'; // Flag de agressividade da meta
+        
         const ctlAtual = Math.max(0, parseFloat(atl.ctl) || 20);
         const atlAtual = Math.max(0, parseFloat(atl.atl) || 20);
         const acwrAtual = ctlAtual > 0 ? (atlAtual / ctlAtual) : 1.0;
@@ -47,7 +50,6 @@ const CoachPlanner = {
 
         let plano = [];
         let idCounter = 1;
-
         const ehCicloExpress = totalSemanas <= 3;
         const maxSemanasProva = distProva <= 5 ? 12 : (distProva <= 10 ? 16 : 52);
 
@@ -102,7 +104,9 @@ const CoachPlanner = {
             let fatorProgressao = 1.0;
             const tetoAbsolutoKm = Math.max(volInicialAtleta * 1.15, distProva >= 42 ? 85 : (distProva >= 21 ? 55 : 40));
             const multiplicadorTeto = Math.max(1.8, tetoAbsolutoKm / volInicialAtleta);
-            const tetoFisiologicoProva = volInicialAtleta <= 15 ? Math.min(multiplicadorTeto, 8.0) : Math.min(multiplicadorTeto, 4.5);
+            
+            // Metas de tempo recebem teto ligeiramente mais agressivo
+            const tetoFisiologicoProva = volInicialAtleta <= 15 ? Math.min(multiplicadorTeto, 8.0) : Math.min(multiplicadorTeto, (isMetaTempo ? 5.0 : 4.5));
 
             if (baseProgressivaAtiva && s < semanasBaseManutencao) {
                 fase = "Construção de Base Aeróbica";
@@ -145,10 +149,9 @@ const CoachPlanner = {
             const volRestante = ehIniciantePuro 
                 ? Math.max(0, volAlvoSemana - distLongao) 
                 : Math.max(numSessoes * 2.5, volAlvoSemana - distLongao);
-                
-            const baseComum = ehIniciantePuro ? 1.5 : 2.5;
-            const distSessaoComumRaw = Math.max(baseComum, volRestante / Math.max(1, numSessoes - 1));
-            const distSessaoComum = Math.min(distLongao * 0.85, distSessaoComumRaw);
+            
+            const distSessaoComumRaw = volRestante / Math.max(1, numSessoes - 1);
+            const distSessaoComum = Math.min(distLongao * 0.85, Math.max(1.0, distSessaoComumRaw));
 
             const diasCorridaDaSemana = [];
             for (let d = 0; d < 7; d++) {
@@ -171,12 +174,12 @@ const CoachPlanner = {
             }
 
             // HIERARQUIA DE ALOCAÇÃO DO LONGÃO
-            let diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 0); // Domingo
+            let diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 0);
             if (!diaLongaoObj) {
-                diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 6); // Sábado
+                diaLongaoObj = diasCorridaDaSemana.find(item => item.diaDaSemana === 6);
             }
             if (!diaLongaoObj && diasCorridaDaSemana.length > 0) {
-                diaLongaoObj = diasCorridaDaSemana[diasCorridaDaSemana.length - 1]; // Fallback
+                diaLongaoObj = diasCorridaDaSemana[diasCorridaDaSemana.length - 1];
             }
 
             const diasCandidatosIntensidade = diasCorridaDaSemana.filter(item => item !== diaLongaoObj);
@@ -230,7 +233,7 @@ const CoachPlanner = {
                 } else if (ehDiaDeTreino) {
                     if (ehDiaLongao) {
                         tipo = "Rodagem Leve";
-                        distBase = Math.max(3.0, distLongao);
+                        distBase = distLongao;
                         prescricao = "Treino longo em Zona 2 para desenvolvimento da eficiência aeróbica e capilarização.";
                         const deveProtegerSNC = acwrAtual > 1.25;
 
@@ -254,6 +257,7 @@ const CoachPlanner = {
                                 prescricao = "Rodagem Z2 com acelerações neurológicas leves no final.";
                                 const distAcel = 0.4;
                                 if (distBase <= distAcel) {
+                                    distBase = Math.max(distBase, distAcel);
                                     estrutura = [`4x 100m Acelerações Z4 (Pausa 60s caminhada)`];
                                 } else {
                                     const aq = parseFloat((distBase - distAcel).toFixed(1));
@@ -274,16 +278,19 @@ const CoachPlanner = {
                             }
                         } else if (fase === "Polimento / Taper") {
                             tipo = "Limiar Anaeróbico";
-                            distBase = Math.max(3.0, distSessaoComum * 0.7);
+                            distBase = Math.max(1.5, distSessaoComum * 0.8);
                             prescricao = "Ativação neuromuscular leve sem acumular fadiga.";
-                            const pp = 3.0; // 3x 1km
+                            const reps = Math.max(1, Math.floor(distBase / 1.5));
+                            const pp = reps * 1.0;
+                            
                             if (distBase <= pp) {
-                                estrutura = [`3x 1km Z4 (Pausa ${p1000}s)`];
+                                distBase = pp;
+                                estrutura = [`${reps}x 1km Z4 (Pausa ${p1000}s)`];
                             } else {
                                 const resto = distBase - pp;
                                 const aq = parseFloat((resto * 0.6).toFixed(1));
                                 const desaq = parseFloat((resto - aq).toFixed(1));
-                                estrutura = [`${aq}km Z2`, `3x 1km Z4 (Pausa ${p1000}s)`, `${desaq}km Z1`];
+                                estrutura = [`${aq}km Z2`, `${reps}x 1km Z4 (Pausa ${p1000}s)`, `${desaq}km Z1`];
                             }
                         } else {
                             if (conflitoPernas) {
@@ -294,11 +301,12 @@ const CoachPlanner = {
                             } else {
                                 if (distProva >= 15 && fase !== "Base Geral" && fase !== "Base Aeróbica") {
                                     tipo = "Limiar Anaeróbico";
-                                    distBase = distSessaoComum;
+                                    distBase = distSessaoComum * (isMetaTempo ? 1.15 : 1.0);
                                     prescricao = "Tempo Run (Z3/Z4). Foco em eficiência metabólica e tolerância ao lactato.";
                                     const aq = 2.0;
                                     const desaq = 1.0;
                                     if (distBase <= (aq + desaq)) {
+                                         distBase = Math.max(distBase, 2.0);
                                          estrutura = [`${distBase.toFixed(1)}km Sustentado em Z3/Z4`];
                                     } else {
                                          const pp = parseFloat((distBase - aq - desaq).toFixed(1));
@@ -309,15 +317,16 @@ const CoachPlanner = {
                                     distBase = distSessaoComum;
                                     prescricao = ehFasePlato ? "Foco em economia de corrida e tolerância (Cruise Intervals)." : "Sessão de alta intensidade para elevação do VO2 Max.";
                                     
-                                    const teto400 = ehAvancado ? 16 : 10;
-                                    const teto800 = ehAvancado ? 8 : 6;
-                                    const teto1000 = ehAvancado ? 6 : 4;
+                                    const teto400 = ehAvancado ? (isMetaTempo ? 16 : 14) : (isMetaTempo ? 12 : 10);
+                                    const teto800 = ehAvancado ? 8 : (isMetaTempo ? 7 : 6);
+                                    const teto1000 = ehAvancado ? 6 : (isMetaTempo ? 5 : 4);
 
                                     if (distProva <= 5) {
                                         const padraoTiro = s % 3;
                                         if (padraoTiro === 0) {
                                             const numReps = Math.min(teto400, Math.max(5, Math.floor(distSessaoComum * 1.2)));
                                             const distTiros = parseFloat((numReps * 0.4).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
                                                 estrutura = [`${numReps}x 400m Z5 (Pausa ${p400}s)`];
                                             } else {
@@ -329,6 +338,7 @@ const CoachPlanner = {
                                         } else if (padraoTiro === 1) {
                                             const numReps = Math.min(teto800, Math.max(3, Math.floor(distSessaoComum * 0.7)));
                                             const distTiros = parseFloat((numReps * 0.8).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
                                                 estrutura = [`${numReps}x 800m Z5 (Pausa ${p800}s)`];
                                             } else {
@@ -338,14 +348,17 @@ const CoachPlanner = {
                                                 estrutura = [`${aq}km Z2 (Aquecimento)`, `${numReps}x 800m Z5 (Pausa ${p800}s)`, `${desaq}km Z1 (Desaquecimento)`];
                                             }
                                         } else {
-                                            const distTiros = 3.2; // 4x 600m + 4x 200m
+                                            let reps600 = Math.max(2, Math.floor(distSessaoComum * 0.8));
+                                            let reps200 = reps600;
+                                            let distTiros = parseFloat(((reps600 * 0.6) + (reps200 * 0.2)).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
-                                                estrutura = [`4x 600m Z5 (Pausa ${p800}s)`, `4x 200m Z5+ Velocidade (Pausa ${p400}s)`];
+                                                estrutura = [`${reps600}x 600m Z5 (Pausa ${p800}s)`, `${reps200}x 200m Z5+ Velocidade (Pausa ${p400}s)`];
                                             } else {
                                                 const resto = distBase - distTiros;
                                                 const aq = parseFloat((resto * 0.6).toFixed(1));
                                                 const desaq = parseFloat((resto - aq).toFixed(1));
-                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `4x 600m Z5 (Pausa ${p800}s)`, `4x 200m Z5+ Velocidade (Pausa ${p400}s)`, `${desaq}km Z1`];
+                                                estrutura = [`${aq}km Z2 (Aquecimento)`, `${reps600}x 600m Z5 (Pausa ${p800}s)`, `${reps200}x 200m Z5+ Velocidade (Pausa ${p400}s)`, `${desaq}km Z1`];
                                             }
                                         }
                                     } else {
@@ -353,6 +366,7 @@ const CoachPlanner = {
                                         if (padraoTiro === 0) {
                                             const numReps = Math.min(teto800, Math.max(4, Math.floor(distSessaoComum * 0.7)));
                                             const distTiros = parseFloat((numReps * 0.8).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
                                                 estrutura = [`${numReps}x 800m Z5 (Pausa ${p800}s)`];
                                             } else {
@@ -364,6 +378,7 @@ const CoachPlanner = {
                                         } else if (padraoTiro === 1) {
                                             const numReps = Math.min(teto1000, Math.max(3, Math.floor(distSessaoComum * 0.5)));
                                             const distTiros = parseFloat((numReps * 1.0).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
                                                 estrutura = [`${numReps}x 1000m Z4/Z5 (Pausa ${p1000}s)`];
                                             } else {
@@ -375,6 +390,7 @@ const CoachPlanner = {
                                         } else {
                                             const numReps = Math.min(teto400, Math.max(6, Math.floor(distSessaoComum * 1.2)));
                                             const distTiros = parseFloat((numReps * 0.4).toFixed(1));
+                                            distBase = Math.max(distBase, distTiros);
                                             if (distBase <= distTiros) {
                                                 estrutura = [`${numReps}x 400m Z5 (Pausa ${p400}s)`];
                                             } else {
@@ -418,6 +434,7 @@ const CoachPlanner = {
                     dataISO,
                     tipo,
                     distanciaBase: parseFloat((Math.max(0, distBase) || 0).toFixed(1)),
+                    distanciaOriginal: parseFloat((Math.max(0, distBase) || 0).toFixed(1)),
                     prescricao,
                     fasePlano: fase,
                     estrutura,
@@ -425,12 +442,11 @@ const CoachPlanner = {
                 });
             }
         }
-
         return plano;
     },
 
     validarMetaAgressiva(distAtual, tempoAtualMin, distAlvo, tempoAlvoStr) {
-        const dA = Math.max(0, parseFloat(distAlvo) || 0);
+        const dA = Math.max(0.1, parseFloat(distAtual) || 0.1); 
         const tA = Math.max(0, parseFloat(tempoAtualMin) || 0);
         const dTarget = Math.max(0, parseFloat(distAlvo) || 0);
 
@@ -448,6 +464,7 @@ const CoachPlanner = {
         if (tempoRiegelMin <= 0) return null;
 
         const ganhoRequeridoPerc = ((tempoRiegelMin - tempoAlvoMin) / tempoRiegelMin) * 100;
+        
         if (ganhoRequeridoPerc > 25) {
             const paceRiegelSeg = (tempoRiegelMin * 60) / dTarget;
             const paceAlvoSeg = (tempoAlvoMin * 60) / dTarget;
@@ -473,84 +490,36 @@ const CoachPlanner = {
         const volAlvo = Math.max(1.0, parseFloat(volAlvoSemana) || 10.0);
         const distProva = Math.max(1.0, parseFloat(distProvaKm) || 10.0);
         const sessoes = Math.max(1, parseInt(numSessoes, 10) || 3);
-
         let tetoLongao;
         let pisoLongao;
 
         if (distProva <= 10) {
-            tetoLongao = Math.min(21, Math.max(10, volAlvo * 0.35)); 
+            tetoLongao = Math.min(21, Math.max(10, volAlvo * 0.35));
             pisoLongao = Math.max(3, volAlvo * 0.30);
         } else {
-            tetoLongao = Math.min(distProva + 2, Math.max(16, distProva * 0.90)); 
+            tetoLongao = Math.min(distProva + 2, Math.max(16, distProva * 0.90));
             pisoLongao = Math.min(distProva, Math.max(5, distProva * 0.4));
         }
 
         const diasPolimento = ehCicloExpress ? 0 : (totalSemanas <= 3 ? 1 : 2);
-        if (semanaIndex >= totalSemanas - diasPolimento) return pisoLongao;
+        const estaNoPolimento = semanaIndex >= totalSemanas - diasPolimento;
+
+        // Esmagamento forçado de proteção para a fase de Polimento
+        if (estaNoPolimento) {
+            const redutorTaper = semanaIndex === totalSemanas - 1 ? 0.4 : 0.6;
+            tetoLongao *= redutorTaper;
+            pisoLongao *= redutorTaper;
+        }
 
         const divisorDiv = Math.max(1, totalSemanas - diasPolimento);
         const progresso = Math.min(1.0, (semanaIndex + 1) / divisorDiv);
         const distCalculada = pisoLongao + ((tetoLongao - pisoLongao) * progresso);
-
+        
         const pctMaximo = (sessoes <= 2) ? (distProva >= 21 ? 0.65 : 0.55) : ((distProva >= 21 && sessoes <= 3) ? 0.60 : 0.48);
         const travaSegurancaVolume = volAlvo * pctMaximo;
-
-        return Math.max(pisoLongao, Math.min(distCalculada, travaSegurancaVolume));
-    },
-
-    rebalancearAdesaoSevera(plano, treinosRealizados, hojeISO) {
-        if (!Array.isArray(plano) || plano.length === 0) return [];
-        if (!Array.isArray(treinosRealizados) || treinosRealizados.length === 0) return plano;
-
-        const limiteDuasSemanas = parseLocalDate(hojeISO);
-        limiteDuasSemanas.setDate(limiteDuasSemanas.getDate() - 14);
-        const limiteISO = getLocalISODate(limiteDuasSemanas);
-
-        const treinosUltimasDuasSemanas = treinosRealizados.filter(t => t && t.dataISO >= limiteISO && t.dataISO < hojeISO);
-
-        if (treinosUltimasDuasSemanas.length === 0) {
-            plano.forEach(t => {
-                if (t && t.dataISO >= hojeISO && !t.concluido) {
-                    t.distanciaBase = parseFloat((Math.max(0, (t.distanciaBase || 0) * 0.70)).toFixed(1)); 
-                }
-            });
-        }
-        return plano;
-    },
-
-    rebalancearSemana(plano, treinosRealizados, hojeISO, atleta) {
-        if (!Array.isArray(plano)) return [];
-        const { start, end } = obterLimitesDaSemana(hojeISO);
-
-        const treinosDaSemana = plano.filter(t => t && t.dataISO >= start && t.dataISO <= end);
-        const realizadosNaSemana = (Array.isArray(treinosRealizados) ? treinosRealizados : []).filter(t => t && t.dataISO >= start && t.dataISO <= end);
         
-        let volPlanejado = treinosDaSemana.reduce((acc, t) => acc + (parseFloat(t.distanciaBase) || 0), 0);
-        let volRealizado = realizadosNaSemana.reduce((acc, t) => acc + (parseFloat(t.dist) || 0), 0);
-
-        if (volPlanejado > 0 && realizadosNaSemana.length > 0) {
-            const numRestantes = treinosDaSemana.filter(t => t && t.dataISO > hojeISO && t.tipo !== "Descanso").length;
-            if (numRestantes > 0) {
-                const diff = volPlanejado - volRealizado;
-                const ajustePorTreino = diff / numRestantes;
-                
-                const ctl = parseFloat(atleta?.ctl) || 0;
-                const atl = parseFloat(atleta?.atl) || 0;
-                const acwrAtual = ctl > 0 ? (atl / ctl) : 1.0;
-
-                if (acwrAtual > 1.3) return plano;
-
-                treinosDaSemana.forEach(t => {
-                    if (t && t.dataISO > hojeISO && t.tipo !== "Descanso") {
-                        const distBase = parseFloat(t.distanciaBase) || 0;
-                        const tetoAjuste = distBase * 0.10;
-                        const incrementoReal = Math.min(ajustePorTreino * 0.25, tetoAjuste);
-                        t.distanciaBase = Math.max(2.5, parseFloat((distBase + incrementoReal).toFixed(1)));
-                    }
-                });
-            }
-        }
-        return plano;
+        pisoLongao = Math.min(pisoLongao, travaSegurancaVolume);
+        return Math.max(pisoLongao, Math.min(distCalculada, travaSegurancaVolume));
     },
 
     obterTenisSugerido(tipoTreino, listaTenis) {
@@ -569,6 +538,85 @@ const CoachPlanner = {
         if (versatil) return versatil.id;
 
         return disponiveis[0].id;
+    },
+
+    _reescalarEstrutura(estrutura, distAntiga, distNova) {
+        if (!Array.isArray(estrutura) || distAntiga <= 0) return estrutura;
+        const fator = distNova / distAntiga;
+        return estrutura.map(bloco => {
+            return bloco.replace(/(\d+(?:\.\d+)?)\s*km/gi, (match, num) => {
+                const novoVal = (parseFloat(num) * fator).toFixed(1);
+                return `${novoVal}km`;
+            });
+        });
+    },
+
+    rebalancearAdesaoSevera(plano, treinosRealizados, hojeISO) {
+        if (!Array.isArray(plano) || plano.length === 0) return [];
+        if (!Array.isArray(treinosRealizados) || treinosRealizados.length === 0) return plano;
+        const limiteDuasSemanas = parseLocalDate(hojeISO);
+        limiteDuasSemanas.setDate(limiteDuasSemanas.getDate() - 14);
+        const limiteISO = getLocalISODate(limiteDuasSemanas);
+        const treinosUltimasDuasSemanas = treinosRealizados.filter(t => t && t.dataISO >= limiteISO && t.dataISO < hojeISO);
+        
+        if (treinosUltimasDuasSemanas.length === 0) {
+            plano.forEach(t => {
+                if (t && t.dataISO >= hojeISO && !t.concluido && t.tipo !== "PROVA ALVO") {
+                    const original = parseFloat(t.distanciaOriginal || t.distanciaBase) || 0;
+                    const novaDist = parseFloat((Math.max(0, original * 0.70)).toFixed(1));
+                    t.distanciaBase = novaDist;
+                    t.estrutura = this._reescalarEstrutura(t.estrutura, original, novaDist);
+                    
+                    // Trava de proteção: Altera o original para que o rebalanceador de semana não adicione a diferença
+                    t.distanciaOriginal = novaDist; 
+                    t.protegidoAdesao = true; 
+                }
+            });
+        }
+        return plano;
+    },
+
+    rebalancearSemana(plano, treinosRealizados, hojeISO, atleta) {
+        if (!Array.isArray(plano)) return [];
+        const { start, end } = obterLimitesDaSemana(hojeISO);
+        
+        const treinosDaSemana = plano.filter(t => t && t.dataISO >= start && t.dataISO <= end);
+        const realizadosNaSemana = (Array.isArray(treinosRealizados) ? treinosRealizados : []).filter(t => t && t.dataISO >= start && t.dataISO <= end);
+        
+        let diff = 0;
+        treinosDaSemana.forEach(t => {
+            if (t.dataISO <= hojeISO && t.tipo !== "Descanso" && t.tipo !== "PROVA ALVO") {
+                const original = parseFloat(t.distanciaOriginal || t.distanciaBase) || 0;
+                const real = realizadosNaSemana.filter(r => r.dataISO === t.dataISO).reduce((acc, r) => acc + (parseFloat(r.dist) || 0), 0);
+                diff += (original - real);
+            }
+        });
+        
+        const futurosValidos = treinosDaSemana.filter(t => t && t.dataISO > hojeISO && !t.protegidoAdesao && t.tipo !== "Descanso" && t.tipo !== "PROVA ALVO");
+        const numRestantes = futurosValidos.length;
+        
+        if (numRestantes > 0 && diff !== 0) {
+            const ctl = parseFloat(atleta?.ctl) || 0;
+            const atl = parseFloat(atleta?.atl) || 0;
+            const acwrAtual = ctl > 0 ? (atl / ctl) : 1.0;
+            
+            // Aborta se estiver entrando em Overtraining agudo e for positivo (tentar adicionar treino)
+            if (diff > 0 && acwrAtual > 1.3) return plano;
+            
+            const ajustePorTreino = diff / numRestantes;
+            futurosValidos.forEach(t => {
+                const original = parseFloat(t.distanciaOriginal || t.distanciaBase) || 0;
+                // Limita a rolagem de carga a 15% para cima e 10% para baixo
+                const tetoAjuste = diff > 0 ? original * 0.15 : -original * 0.10;
+                const incrementoReal = diff > 0 ? Math.min(ajustePorTreino, tetoAjuste) : Math.max(ajustePorTreino, tetoAjuste);
+                
+                const novaDist = Math.max(2.5, parseFloat((original + incrementoReal).toFixed(1)));
+                t.distanciaBase = novaDist;
+                t.estrutura = this._reescalarEstrutura(t.estrutura, original, novaDist);
+                t.distanciaOriginal = novaDist; // Seta o marco do rebalanceamento atual
+            });
+        }
+        return plano;
     },
 
     gerarPlanoPosProva(atleta, distProvaRealizada, dataProvaISO) {
@@ -598,7 +646,11 @@ const CoachPlanner = {
             let fatorVol = ehFaseRecovery ? (0.35 + (s * 0.15)) : 0.70;
             const volSemanalAlvo = Math.max(8.0, (parseFloat(atl.volSemanal) || 20) * fatorVol);
             const numSessoes = Math.max(1, diasDisponiveis.length);
-            const distPorSessao = parseFloat((volSemanalAlvo / numSessoes).toFixed(1));
+            let distPorSessao = parseFloat((volSemanalAlvo / numSessoes).toFixed(1));
+
+            if (ehFaseRecovery && s < 2 && distReal >= 42) {
+                distPorSessao = Math.min(distPorSessao, 5.0);
+            }
 
             let sessoesAlocadasSemana = 0;
 
@@ -639,6 +691,7 @@ const CoachPlanner = {
                             const aq = 1.5;
                             const desaq = 1.0;
                             if (distBase <= (aq + desaq)) {
+                                 distBase = Math.max(distBase, 2.0);
                                  estrutura = [`${distBase.toFixed(1)}km Z4 Sustentado`];
                             } else {
                                  const pp = parseFloat((distBase - aq - desaq).toFixed(1));
@@ -651,8 +704,6 @@ const CoachPlanner = {
                             estrutura = [`${distBase}km contínuos em Z2`];
                         }
                     }
-
-                    distBase = (ehFaseRecovery && s < 2 && distReal >= 42) ? Math.min(distBase, 5.0) : distBase;
                 }
 
                 plano.push({
@@ -660,6 +711,7 @@ const CoachPlanner = {
                     dataISO,
                     tipo,
                     distanciaBase: parseFloat((Math.max(0, distBase) || 0).toFixed(1)),
+                    distanciaOriginal: parseFloat((Math.max(0, distBase) || 0).toFixed(1)),
                     prescricao,
                     fasePlano: faseNome,
                     estrutura,

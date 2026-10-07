@@ -335,11 +335,9 @@ function renderizarCardHoje(hojeISO, zonas) {
         const infoZona = zonas[tipo] || {};
         const eEsteira = !!app.state.modoEsteira;
 
-        let tempoEstimadoMin = 45;
-        if (infoZona.pace && infoZona.pace !== "-" && !infoZona.pace.includes("Variado") && !infoZona.pace.includes("Máx") && !infoZona.pace.includes("M x")) {
-            const paceStr = infoZona.pace.split(' ')[0].replace('/km', '');
-            const paceSeg = (typeof app._paceParaSegundos === 'function') ? app._paceParaSegundos(paceStr) : 330;
-            tempoEstimadoMin = Math.round((paceSeg * distCalculada) / 60);
+let tempoEstimadoMin = 45;
+        if (infoZona.segundosMedio) {
+            tempoEstimadoMin = Math.round((infoZona.segundosMedio * distCalculada) / 60);
         } else if (app.state && app.state.atleta) {
             const baseSeg = Math.max(60, parseFloat(app.state.atleta.paceBaseSegundos) || 330);
             tempoEstimadoMin = Math.round((baseSeg * distCalculada) / 60);

@@ -82,8 +82,7 @@ function verificarAvisosPasso4() {
         return;
     }
 
-    const dAlvo = parseLocalDate(dataAlvoStr);
-    const diasAteProva = Math.ceil((dAlvo - new Date()) / (1000 * 60 * 60 * 24));
+    const diasAteProva = ehDataISOValida(dataAlvoStr) ? diferencaDiasISO(getLocalISODate(), dataAlvoStr) : 0;
     const semanasDisponiveis = Math.max(1, Math.floor(diasAteProva / 7));
 
     const fatorPiso = semanasDisponiveis >= 20 ? 0.35 : (semanasDisponiveis >= 12 ? 0.45 : 0.60);
@@ -283,17 +282,7 @@ window.abrirTreino = function(id, tipo, distCalculada) {
     const distNum = Math.max(0.01, parseFloat(distCalculada) || 0.01);
     if (elDist) elDist.value = distNum;
 
-    const zonas = (app && typeof app.obterZonasKarvonen === 'function') ? app.obterZonasKarvonen() : {};
-    let estimativaMin = 45;
-
-    if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("Máx")) {
-        const paceStr = zonas[tipo].pace.split(' ')[0].replace('/km', '');
-        const paceSegundos = app._paceParaSegundos(paceStr);
-        estimativaMin = (paceSegundos * distNum) / 60;
-    } else if (app && app.state && app.state.atleta) {
-        const baseSeg = Math.max(60, parseFloat(app.state.atleta.paceBaseSegundos) || 330);
-        estimativaMin = (baseSeg * distNum) / 60;
-    }
+    const estimativaMin = app.estimarTempoTreino(tipo, distNum);
 
     if (elTempo) elTempo.value = app._minutosParaTempoString(estimativaMin);
 
@@ -522,9 +511,8 @@ window.finalizarOnboarding = function() {
         return;
     }
 
-    const diasAteProva = Math.ceil((parseLocalDate(dataAlvoStr) - new Date()) / 86400000);
-    if (diasAteProva < 14) return alert("Ciclo mínimo de preparação: 2 semanas.");
-    if (diasAteProva > 365) return alert("O macrociclo máximo suportado é de 1 ano (365 dias).");
+    const validacaoData = validarDataMeta(dataAlvoStr);
+    if (!validacaoData.ok) return alert(validacaoData.mensagem);
 
     const idade = Math.max(10, parseInt(document.getElementById('setup-idade')?.value, 10) || 30);
     const fcRepouso = Math.max(30, parseInt(document.getElementById('setup-fc-repouso')?.value, 10) || 60);
@@ -534,7 +522,9 @@ window.finalizarOnboarding = function() {
     if (fcRepouso >= fcMax) return alert("A Frequência Cardíaca de Repouso deve ser obrigatoriamente menor que a FC Máxima.");
 
     const distAlvo = Math.max(1, parseFloat(document.getElementById('setup-dist-alvo')?.value) || 10);
-    const volSemanal = Math.max(0, parseFloat(document.getElementById('setup-vol-semanal')?.value) || 10);
+    const volumeInformado = numeroFinito(document.getElementById('setup-vol-semanal')?.value, NaN);
+    if (!Number.isFinite(volumeInformado) || volumeInformado < 0) return alert("Informe um volume semanal maior ou igual a zero.");
+    const volSemanal = volumeInformado;
     const tipoMeta = document.getElementById('setup-tipo-meta') ? document.getElementById('setup-tipo-meta').value : 'concluir';
     
     // Captura tempo alvo de inputs separados ou do campo tradicional
@@ -565,7 +555,7 @@ window.finalizarOnboarding = function() {
         ? Array.from(document.querySelectorAll('input[name="setup-dias-musc"]:checked')).map(el => parseInt(el.value, 10)).filter(v => !isNaN(v))
         : [];
 
-    app.initSetup({
+    const resultadoSetup = app.initSetup({
         nome: (document.getElementById('setup-nome')?.value || "Atleta").trim(),
         idade: idade,
         genero: document.getElementById('setup-genero')?.value || 'M',
@@ -585,6 +575,7 @@ window.finalizarOnboarding = function() {
         divisaoMusculacao: document.getElementById('setup-musculacao-divisao') ? document.getElementById('setup-musculacao-divisao').value : 'ab',
         diasMusculacao: diasMusc
     });
+    if (!resultadoSetup?.ok) return alert(resultadoSetup?.mensagem || "Não foi possível criar o plano.");
 
     currentWizardStep = 1;
     document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active', 'slide-forward', 'slide-backward'));
@@ -629,9 +620,15 @@ document.getElementById('form-nova-meta')?.addEventListener('submit', (e) => {
     const tipoMeta = document.getElementById('novo-tipo-meta')?.value;
     const tempoAlvo = document.getElementById('novo-tempo-alvo')?.value;
 
-    if (app && typeof app.definirNovaMeta === 'function') {
-        app.definirNovaMeta(dist, dataAlvo, tipoMeta, tempoAlvo);
+    const validacaoData = validarDataMeta(dataAlvo);
+    if (!validacaoData.ok) {
+        alert(validacaoData.mensagem);
+        document.getElementById('nova-data-alvo')?.focus();
+        return;
     }
+    if (!app || typeof app.definirNovaMeta !== 'function') return;
+    const resultado = app.definirNovaMeta(dist, dataAlvo, tipoMeta, tempoAlvo);
+    if (!resultado?.ok) return alert(resultado?.mensagem || "Não foi possível criar a nova meta.");
     fecharModal('modal-nova-meta');
     if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
     if (typeof showToast === 'function') showToast("🚀 Novo plano gerado com sucesso! Bom treino!");

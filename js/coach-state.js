@@ -5,6 +5,8 @@
 class RunningCoach {
     constructor() {
         this.STORAGE_KEY = 'trote_coach_state_v2';
+        this.BACKUP_SEED_KEY = 'trote_coach_state_v2_backup_seed_v1';
+        this._backupLegadoPendente = null;
         this.state = null;
         this.loadState();
     }
@@ -16,8 +18,12 @@ class RunningCoach {
                 const parsed = JSON.parse(saved);
                 if (parsed && typeof parsed === 'object') {
                     this.state = parsed;
+                    if (!this._seedFisiologiaValido(parsed.fisiologiaSeed)) this._backupLegadoPendente = saved;
                     this._garantirIntegridadeEstrutural();
+                    this._garantirSeedFisiologia();
                     this.verificarDestreinamentoEgressor();
+                    this.recalcularFisiologia();
+                    this.saveState();
                 } else {
                     this.state = null;
                 }
@@ -31,9 +37,20 @@ class RunningCoach {
     saveState() {
         if (!this.state) return;
         try {
+            // Guarda o JSON original antes da primeira conversão do seed legado.
+            // Se o backup falhar, não sobrescreve a única cópia persistida.
+            if (this._backupLegadoPendente !== null) {
+                if (localStorage.getItem(this.BACKUP_SEED_KEY) === null) {
+                    localStorage.setItem(this.BACKUP_SEED_KEY, this._backupLegadoPendente);
+                }
+            }
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.state));
+            this._backupLegadoPendente = null;
+            return true;
         } catch (e) {
             console.error("Erro ao salvar estado no localStorage:", e);
+            if (typeof showToast === 'function') showToast("Não foi possível salvar. Não feche o app até liberar espaço e tentar novamente.");
+            return false;
         }
     }
 
@@ -63,14 +80,14 @@ class RunningCoach {
         if (!Array.isArray(a.diasTreino)) a.diasTreino = [2, 4, 0];
         if (!Array.isArray(a.diasMusculacao)) a.diasMusculacao = [];
 
-        a.ctl = Math.max(0, parseFloat(a.ctl) || 20);
-        a.atl = Math.max(0, parseFloat(a.atl) || 20);
+        a.ctl = Math.max(0, numeroFinito(a.ctl, 20));
+        a.atl = Math.max(0, numeroFinito(a.atl, 20));
         a.tsb = parseFloat(a.tsb) || 0;
-        a.volSemanal = Math.max(0, parseFloat(a.volSemanal) || 10);
+        a.volSemanal = Math.max(0, numeroFinito(a.volSemanal, 10));
         a.fcRepouso = Math.max(30, parseInt(a.fcRepouso, 10) || 60);
         a.fcMax = Math.max(a.fcRepouso + 10, parseInt(a.fcMax, 10) || 185);
         a.paceBaseSegundos = Math.max(60, parseInt(a.paceBaseSegundos, 10) || 330);
-        a.multiplicadorVolume = Math.max(0.5, parseFloat(a.multiplicadorVolume) || 1.0);
+        a.multiplicadorVolume = Math.max(0.5, Math.min(2, numeroFinito(a.multiplicadorVolume, 1)));
         a.fazMusculacao = !!a.fazMusculacao;
         a.divisaoMusculacao = a.divisaoMusculacao || 'nenhum';
         a.faseRegeneracaoAbsoluta = !!a.faseRegeneracaoAbsoluta;
@@ -78,6 +95,7 @@ class RunningCoach {
         if (!Array.isArray(this.state.plano)) this.state.plano = [];
         if (!Array.isArray(this.state.treinosRealizados)) this.state.treinosRealizados = [];
         if (!Array.isArray(this.state.logs)) this.state.logs = [];
+        CoachPlanner.sincronizarEstruturasPlano(this.state.plano);
 
         if (this.state.modoEsteira === undefined) this.state.modoEsteira = false;
         if (this.state.emManutencao === undefined) this.state.emManutencao = false;
@@ -85,6 +103,8 @@ class RunningCoach {
 
     initSetup(d) {
         const inputData = d || {};
+        const validacao = validarDataMeta(inputData.dataAlvo);
+        if (!validacao.ok) return validacao;
         const distAtualSanitizada = Math.max(0.1, parseFloat(inputData.distAtual) || 10);
         const tempoAtualSanitizado = Math.max(1, parseFloat(inputData.tempoAtual) || 60);
         const paceBaseSegundos = Math.round((tempoAtualSanitizado * 60) / distAtualSanitizada);
@@ -94,7 +114,7 @@ class RunningCoach {
             diasMusc = [1, 3, 5];
         }
         
-        const volSemanal = Math.max(0, parseFloat(inputData.volSemanal) || 10);
+        const volSemanal = Math.max(0, numeroFinito(inputData.volSemanal, 10));
         const ctlInferido = Math.min(85, Math.max(15, (volSemanal * 0.90)));
         const atlInferido = ctlInferido * 1.05;
         const idade = Math.max(10, parseInt(inputData.idade, 10) || 30);
@@ -129,19 +149,31 @@ class RunningCoach {
         };
         
         this.inicializarAtleta(dadosAtleta, dadosProva);
+        return { ok: true };
     }
 
     inicializarAtleta(dadosAtleta, dadosProva) {
         const planoGerado = CoachPlanner.gerarPlano(dadosAtleta, dadosProva);
         const historicoInicial = planoGerado.map(t => ({
             dataISO: t.dataISO,
-            ctl: dadosAtleta.ctl || 20,
-            atl: dadosAtleta.atl || 20,
+            ctl: numeroFinito(dadosAtleta.ctl, 20),
+            atl: numeroFinito(dadosAtleta.atl, 20),
             tsb: 0,
             ehFuturo: true
         }));
         
+        const dataSeed = parseLocalDate(dadosAtleta.dataInicioISO);
+        dataSeed.setDate(dataSeed.getDate() - 1);
         this.state = {
+            schemaVersion: 3,
+            fisiologiaSeed: Object.freeze({
+                versao: 1,
+                dataInicioISO: dadosAtleta.dataInicioISO,
+                dataSeedISO: getLocalISODate(dataSeed),
+                ctlInicial: Math.max(0, numeroFinito(dadosAtleta.ctl, 20)),
+                atlInicial: Math.max(0, numeroFinito(dadosAtleta.atl, 20)),
+                origem: 'perfil-inicial'
+            }),
             atleta: {
                 ...dadosAtleta,
                 historicoCTL: historicoInicial
@@ -172,6 +204,7 @@ class RunningCoach {
         const diasInativo = typeof diferencaDiasISO === 'function' ? diferencaDiasISO(ultimaDataISO, hojeISO) : 0;
         
         if (diasInativo >= 21) {
+            if (!validarDataMeta(this.state.prova.dataStr, hojeISO).ok) return;
             // ISSUE 12: Impede o corte duplo no mesmo dia
             const checkJaAjustado = this.state.logs.some(l => l.data === formatarDataHoje() && l.msg.includes("Inatividade severa"));
             if (!checkJaAjustado) {
@@ -275,30 +308,11 @@ class RunningCoach {
         const treinoPlano = this.state.plano.find(t => t && t.id === idPlano);
         if (!treinoPlano || treinoPlano.concluido) return;
         
-        const multVol = parseFloat(this.state.atleta?.multiplicadorVolume) || 1.0;
-        const distNum = parseFloat(((parseFloat(treinoPlano.distanciaBase) || 0) * multVol).toFixed(1));
+        const distNum = this.obterDistanciaTreino(treinoPlano);
         if (distNum <= 0) return;
-        
         const tipo = treinoPlano.tipo || "Rodagem Leve";
-        const zonas = this.obterZonasKarvonen();
-        let tempoMin = 45;
-        
-        if (zonas[tipo] && zonas[tipo].pace && zonas[tipo].pace !== "-" && !zonas[tipo].pace.includes("Variado") && !zonas[tipo].pace.includes("Máx")) {
-            const partesPace = zonas[tipo].pace.split('/km')[0].split('-').map(p => p.trim());
-            if (partesPace.length === 2) {
-                const seg1 = this._paceParaSegundos(partesPace[0]);
-                const seg2 = this._paceParaSegundos(partesPace[1]);
-                const segMedio = (seg1 + seg2) / 2;
-                tempoMin = (segMedio * distNum) / 60;
-            } else if (partesPace.length === 1) {
-                const seg = this._paceParaSegundos(partesPace[0]);
-                tempoMin = (seg * distNum) / 60;
-            }
-        } else {
-            const baseSeg = Math.max(60, parseFloat(this.state.atleta.paceBaseSegundos) || 330);
-            tempoMin = (baseSeg * distNum) / 60;
-        }
-        
+        const tempoMin = this.estimarTempoTreino(tipo, distNum);
+
         let rpeDefault = 6;
         if (tipo.includes("Regenerativo")) rpeDefault = 2;
         else if (tipo.includes("Rodagem") || tipo.includes("Leve")) rpeDefault = 4;
@@ -419,28 +433,86 @@ class RunningCoach {
         if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
     }
 
+    _seedFisiologiaValido(seed) {
+        return !!seed && seed.versao === 1 && ehDataISOValida(seed.dataInicioISO)
+            && ehDataISOValida(seed.dataSeedISO) && diferencaDiasISO(seed.dataSeedISO, seed.dataInicioISO) === 1
+            && Number.isFinite(seed.ctlInicial) && seed.ctlInicial >= 0
+            && Number.isFinite(seed.atlInicial) && seed.atlInicial >= 0;
+    }
+
+    _garantirSeedFisiologia() {
+        if (this._seedFisiologiaValido(this.state.fisiologiaSeed)) {
+            this.state.fisiologiaSeed = Object.freeze(this.state.fisiologiaSeed);
+            return this.state.fisiologiaSeed;
+        }
+        const atleta = this.state.atleta;
+        const historico = atleta.historicoCTL.filter(dia => dia && ehDataISOValida(dia.dataISO))
+            .sort((a, b) => a.dataISO.localeCompare(b.dataISO));
+        const primeiro = historico[0];
+        const inicio = primeiro?.dataISO || (ehDataISOValida(atleta.dataInicioISO) ? atleta.dataInicioISO : getLocalISODate());
+        let ctlInicial = Math.max(0, numeroFinito(atleta.ctl, 20));
+        let atlInicial = Math.max(0, numeroFinito(atleta.atl, 20));
+        let origem = 'legado-sem-serie-estimado';
+        if (primeiro && Number.isFinite(primeiro.ctl) && Number.isFinite(primeiro.atl)) {
+            const tss = Math.max(0, numeroFinito(primeiro.tss, 0));
+            const kCTL = 1 - Math.exp(-1 / 42);
+            const kATL = 1 - Math.exp(-1 / 7);
+            // Inversão aproximada: o histórico legado já foi arredondado.
+            // Não recupera deriva causada por recálculos anteriores à correção.
+            ctlInicial = Math.max(0, (primeiro.ctl - tss * kCTL) / (1 - kCTL));
+            atlInicial = Math.max(0, (primeiro.atl - tss * kATL) / (1 - kATL));
+            origem = 'legado-invertido-aproximado';
+        }
+        this.state.schemaVersion = 3;
+        const dataSeed = parseLocalDate(inicio);
+        dataSeed.setDate(dataSeed.getDate() - 1);
+        this.state.fisiologiaSeed = Object.freeze({ versao: 1, dataInicioISO: inicio, dataSeedISO: getLocalISODate(dataSeed), ctlInicial, atlInicial, origem });
+        this.state.logs.unshift({ data: formatarDataHoje(), msg: 'Cálculo de carga atualizado. O ponto inicial do histórico antigo foi estimado; uma cópia anterior foi reservada para backup.' });
+        return this.state.fisiologiaSeed;
+    }
+
     recalcularFisiologia() {
         if (!this.state) return;
-        const ctlIni = parseFloat(this.state.atleta.historicoCTL[0]?.ctl) || 0;
-        const atlIni = parseFloat(this.state.atleta.historicoCTL[0]?.atl) || 0;
-        
-        this.state.atleta.historicoCTL = CoachPhysiology.recalcularHistoricoCTL(
-            this.state.atleta.historicoCTL,
-            this.state.treinosRealizados,
-            this.state.plano, // Envia o plano
-            this.state.atleta, // Envia o atleta
-            ctlIni,
-            atlIni
-        );
-
+        const seed = this._garantirSeedFisiologia();
         const hojeISO = getLocalISODate();
-        const hojestat = (Array.isArray(this.state.atleta.historicoCTL) 
-            ? this.state.atleta.historicoCTL.find(h => h && h.dataISO === hojeISO) 
-            : null) || {};
-            
-        this.state.atleta.ctl = parseFloat(hojestat.ctl) || this.state.atleta.ctl || 20;
-        this.state.atleta.atl = parseFloat(hojestat.atl) || this.state.atleta.atl || 20;
-        this.state.atleta.tsb = parseFloat(hojestat.tsb) || 0;
+        const historicoAnterior = this.state.atleta.historicoCTL;
+        const datas = [hojeISO, ...historicoAnterior.map(dia => dia?.dataISO),
+            ...this.state.plano.map(treino => treino?.dataISO), ...this.state.treinosRealizados.map(treino => treino?.dataISO)]
+            .filter(data => ehDataISOValida(data) && data >= seed.dataInicioISO).sort();
+        const fimISO = datas.at(-1) || seed.dataInicioISO;
+        const grade = [];
+        const data = parseLocalDate(seed.dataInicioISO);
+        const totalDias = diferencaDiasISO(seed.dataInicioISO, fimISO);
+        for (let i = 0; i <= totalDias; i++) {
+            const dataISO = getLocalISODate(data);
+            grade.push({ dataISO });
+            data.setDate(data.getDate() + 1);
+        }
+        this.state.atleta.historicoCTL = CoachPhysiology.recalcularHistoricoCTL(
+            grade, this.state.treinosRealizados, this.state.plano, this.state.atleta,
+            seed.ctlInicial, seed.atlInicial
+        );
+        const hoje = this.state.atleta.historicoCTL.find(dia => dia.dataISO === hojeISO);
+        if (hoje) {
+            this.state.atleta.ctl = hoje.ctl;
+            this.state.atleta.atl = hoje.atl;
+            this.state.atleta.tsb = hoje.tsb;
+        }
+    }
+
+    obterDistanciaTreino(treino) {
+        const multiplicador = Math.max(0.5, Math.min(2, numeroFinito(this.state?.atleta?.multiplicadorVolume, 1)));
+        return Math.round(Math.max(0, numeroFinito(treino?.distanciaBase, 0)) * multiplicador * 10) / 10;
+    }
+
+    obterEstruturaTreino(treino) {
+        return CoachPlanner._reescalarEstrutura(treino?.estrutura, treino?.distanciaBase, this.obterDistanciaTreino(treino));
+    }
+
+    estimarTempoTreino(tipo, distanciaKm) {
+        const zona = this.obterZonasKarvonen()[tipo];
+        const segundosPorKm = numeroFinito(zona?.segundosMedio, Math.max(60, numeroFinito(this.state?.atleta?.paceBaseSegundos, 330)));
+        return Math.max(0, numeroFinito(distanciaKm, 0)) * segundosPorKm / 60;
     }
 
     obterZonasKarvonen() {
@@ -549,14 +621,7 @@ class RunningCoach {
     }
 
     _minutosParaTempoString(minutosTotais) {
-        const total = Math.max(0, parseFloat(minutosTotais) || 0);
-        const h = Math.floor(total / 60);
-        const m = Math.floor(total % 60);
-        const s = Math.round((total * 60) % 60);
-        
-        const sStr = s > 0 ? `${s < 10 ? '0'+s : s}s` : '';
-        if (h > 0) return `${h}h${m < 10 ? '0'+m : m}m${sStr}`;
-        return `${m}m${sStr}`;
+        return formatarDuracaoMinutos(minutosTotais);
     }
 
     _paceParaSegundos(str) {
@@ -568,10 +633,7 @@ class RunningCoach {
     }
 
     _segundosParaPace(seg) {
-        const totalSeg = Math.max(1, parseFloat(seg) || 300);
-        const m = Math.floor(totalSeg / 60);
-        const s = Math.round(totalSeg % 60);
-        return `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+        return formatarPaceSegundos(seg);
     }
 
     finalizarProvaEIniciarPosProva(idPlano, distReal, tempoMin, rpe, tenisId, fc = null) {
@@ -639,8 +701,10 @@ class RunningCoach {
     definirNovaMeta(distAlvo, dataAlvoISO, tipoMeta, tempoAlvoStr) {
         if (!this.state) return;
         const distValida = Math.max(1, parseFloat(distAlvo) || 10);
-        const dataValida = dataAlvoISO || getLocalISODate();
-        
+        const validacao = validarDataMeta(dataAlvoISO);
+        if (!validacao.ok) return validacao;
+        const dataValida = dataAlvoISO;
+
         this.state.prova = {
             distanciaKm: distValida,
             dataStr: dataValida,
@@ -660,8 +724,8 @@ class RunningCoach {
             ...this.state.atleta.historicoCTL.filter(h => h && h.dataISO < hojeISO && !h.ehFuturo),
             ...novoPlano.map(t => ({
                 dataISO: t.dataISO,
-                ctl: this.state.atleta.ctl || 20,
-                atl: this.state.atleta.atl || 20,
+                ctl: numeroFinito(this.state.atleta.ctl, 20),
+                atl: numeroFinito(this.state.atleta.atl, 20),
                 tsb: 0,
                 ehFuturo: true
             }))
@@ -676,6 +740,7 @@ class RunningCoach {
         
         this.recalcularFisiologia();
         this.saveState();
+        return { ok: true };
     }
 }
 

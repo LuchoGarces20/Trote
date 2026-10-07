@@ -24,20 +24,19 @@ const CoachPlanner = {
     gerarPlano(atleta, prova) {
         const atl = atleta || {};
         const prv = prova || {};
+        const validacaoData = validarDataMeta(prv.dataStr, atl.dataInicioISO);
+        if (!validacaoData.ok) throw new RangeError(validacaoData.mensagem);
         const dataInicio = parseLocalDate(atl.dataInicioISO);
-        const dataFim = parseLocalDate(prv.dataStr);
-        
-        let diffDias = Math.ceil((dataFim - dataInicio) / (1000 * 60 * 60 * 24)) + 1;
-        if (isNaN(diffDias) || diffDias < 7) diffDias = 28; 
-        
-        const totalDias = diffDias;
+        const totalDias = validacaoData.dias + 1;
         const totalSemanas = Math.max(1, Math.ceil(totalDias / 7));
         const diasDisponiveis = (Array.isArray(atl.diasTreino) && atl.diasTreino.length >= 1)
             ? [...atl.diasTreino].map(d => parseInt(d, 10)).filter(d => !isNaN(d)).sort((a, b) => a - b)
             : [2, 4, 0];
             
-        const volInicialAtleta = Math.max(5.0, parseFloat(atl.volSemanal) || 10.0);
-        const ehIniciantePuro = volInicialAtleta <= 5.0;
+        const volumeInformado = Math.max(0, numeroFinito(atl.volSemanal, 10));
+        const ehIniciantePuro = volumeInformado <= 5;
+        // Mantém o piso de planejamento existente, sem alterar o volume informado.
+        const volInicialAtleta = Math.max(5, volumeInformado);
         const distProva = Math.max(1.0, parseFloat(prv.distanciaKm) || 10.0);
         const multVol = Math.max(0.5, Math.min(2.0, parseFloat(atl.multiplicadorVolume) || 1.0));
         
@@ -429,6 +428,12 @@ const CoachPlanner = {
                     }
                 }
 
+                if (ehIniciantePuro && s < 4 && ehDiaDeTreino && tipo !== "PROVA ALVO") {
+                    tipo = "Rodagem Leve";
+                    prescricao = "Protocolo de transição: Caminhada rápida + Trote leve.";
+                    estrutura = [`${distBase.toFixed(1)}km alternando: 1 min trote Z2 / 1 min caminhada`];
+                }
+
                 plano.push({
                     id: idCounter++,
                     dataISO,
@@ -442,7 +447,7 @@ const CoachPlanner = {
                 });
             }
         }
-        return plano;
+        return this.sincronizarEstruturasPlano(plano);
     },
 
     validarMetaAgressiva(distAtual, tempoAtualMin, distAlvo, tempoAlvoStr) {
@@ -469,12 +474,7 @@ const CoachPlanner = {
             const paceRiegelSeg = (tempoRiegelMin * 60) / dTarget;
             const paceAlvoSeg = (tempoAlvoMin * 60) / dTarget;
             
-            const formatarPace = (seg) => {
-                const segSan = Math.max(1, seg || 0);
-                const m = Math.floor(segSan / 60);
-                const s = Math.round(segSan % 60);
-                return `${m}:${s < 10 ? '0' : ''}${s}`;
-            };
+            const formatarPace = (seg) => formatarPaceSegundos(seg, false);
 
             return {
                 agressivo: true,
@@ -540,15 +540,91 @@ const CoachPlanner = {
         return disponiveis[0].id;
     },
 
+    _obterSegmentosEstrutura(estrutura) {
+        const segmentos = [];
+        if (!Array.isArray(estrutura)) return segmentos;
+        estrutura.forEach((bloco, indiceBloco) => {
+            if (typeof bloco !== 'string') return;
+            const regex = /\b(?:(\d+)\s*[x×]\s*)?(\d+(?:[.,]\d+)?)\s*(km|m)\b/gi;
+            for (const match of bloco.matchAll(regex)) {
+                const repeticoes = Math.max(1, parseInt(match[1], 10) || 1);
+                const metros = Number(match[2].replace(',', '.')) * (match[3].toLowerCase() === 'km' ? 1000 : 1);
+                segmentos.push({ indiceBloco, repeticoes, repetido: match[1] !== undefined, unidade: match[3].toLowerCase(), metrosTotais: metros * repeticoes });
+            }
+        });
+        return segmentos;
+    },
+
+    obterDistanciaEstrutura(estrutura) {
+        return this._obterSegmentosEstrutura(estrutura).reduce((soma, segmento) => soma + segmento.metrosTotais, 0) / 1000;
+    },
+
     _reescalarEstrutura(estrutura, distAntiga, distNova) {
-        if (!Array.isArray(estrutura) || distAntiga <= 0) return estrutura;
-        const fator = distNova / distAntiga;
+        if (!Array.isArray(estrutura)) return [];
+        const alvoMetros = Math.max(0, Math.round(numeroFinito(distNova, 0) * 1000));
+        if (alvoMetros === 0) return [];
+        const segmentos = this._obterSegmentosEstrutura(estrutura);
+        const somaAtual = segmentos.reduce((soma, segmento) => soma + segmento.metrosTotais, 0);
+        if (somaAtual <= 0 || Math.abs(somaAtual - alvoMetros) < 0.001) return [...estrutura];
+
+        // O texto atual é a fonte das distâncias dos blocos. distAntiga permanece
+        // no contrato para os chamadores existentes, mas não mascara totais errados.
+        const totais = segmentos.map(() => 0);
+        const continuos = segmentos.map((segmento, i) => segmento.repetido ? -1 : i).filter(i => i >= 0);
+        const tiros = segmentos.map((segmento, i) => segmento.repetido ? i : -1).filter(i => i >= 0);
+        const totalTiros = tiros.reduce((soma, i) => soma + segmentos[i].metrosTotais, 0);
+
+        const distribuir = (indices, total) => {
+            const peso = indices.reduce((soma, i) => soma + segmentos[i].metrosTotais, 0);
+            if (!indices.length || peso <= 0) return;
+            const parcelas = indices.map(i => {
+                const exato = total * segmentos[i].metrosTotais / peso;
+                totais[i] = Math.floor(exato);
+                return { i, resto: exato - totais[i] };
+            }).sort((a, b) => b.resto - a.resto || a.i - b.i);
+            let restantes = total - indices.reduce((soma, i) => soma + totais[i], 0);
+            for (const parcela of parcelas) {
+                if (restantes <= 0) break;
+                totais[parcela.i]++;
+                restantes--;
+            }
+        };
+
+        // Preserva os tiros quando o ajuste cabe nos blocos contínuos.
+        if (continuos.some(i => segmentos[i].metrosTotais > 0) && totalTiros < alvoMetros && tiros.length) {
+            tiros.forEach(i => { totais[i] = Math.round(segmentos[i].metrosTotais); });
+            distribuir(continuos, alvoMetros - tiros.reduce((soma, i) => soma + totais[i], 0));
+        } else {
+            distribuir(segmentos.map((_, i) => i), alvoMetros);
+        }
+
+        const distanciaTexto = (metros, unidade) => unidade === 'km'
+            ? `${parseFloat((metros / 1000).toFixed(3))}km`
+            : `${metros}m`;
+        let indice = 0;
         return estrutura.map(bloco => {
-            return bloco.replace(/(\d+(?:\.\d+)?)\s*km/gi, (match, num) => {
-                const novoVal = (parseFloat(num) * fator).toFixed(1);
-                return `${novoVal}km`;
+            if (typeof bloco !== 'string') return bloco;
+            return bloco.replace(/\b(?:(\d+)\s*[x×]\s*)?(\d+(?:[.,]\d+)?)\s*(km|m)\b/gi, () => {
+                const segmento = segmentos[indice];
+                const total = totais[indice++];
+                if (!segmento.repetido) return distanciaTexto(total, segmento.unidade);
+                const porRepeticao = Math.floor(total / segmento.repeticoes);
+                const resto = total - porRepeticao * segmento.repeticoes;
+                if (resto === 0 || segmento.repeticoes === 1) {
+                    return `${segmento.repeticoes}x ${distanciaTexto(porRepeticao, segmento.unidade)}`;
+                }
+                // Um ajuste na última repetição conserva o total em metros inteiros.
+                return `${segmento.repeticoes - 1}x ${distanciaTexto(porRepeticao, segmento.unidade)} + 1x ${distanciaTexto(porRepeticao + resto, segmento.unidade)}`;
             });
         });
+    },
+
+    sincronizarEstruturasPlano(plano) {
+        if (!Array.isArray(plano)) return [];
+        plano.forEach(treino => {
+            if (treino) treino.estrutura = this._reescalarEstrutura(treino.estrutura, treino.distanciaBase, treino.distanciaBase);
+        });
+        return plano;
     },
 
     rebalancearAdesaoSevera(plano, treinosRealizados, hojeISO) {
@@ -644,7 +720,7 @@ const CoachPlanner = {
             const faseNome = ehFaseRecovery ? "Recuperação Ativa (Reverse Taper)" : "Modo Manutenção (Baseline)";
             
             let fatorVol = ehFaseRecovery ? (0.35 + (s * 0.15)) : 0.70;
-            const volSemanalAlvo = Math.max(8.0, (parseFloat(atl.volSemanal) || 20) * fatorVol);
+            const volSemanalAlvo = Math.max(8.0, numeroFinito(atl.volSemanal, 20) * fatorVol);
             const numSessoes = Math.max(1, diasDisponiveis.length);
             let distPorSessao = parseFloat((volSemanalAlvo / numSessoes).toFixed(1));
 
@@ -719,6 +795,6 @@ const CoachPlanner = {
                 });
             }
         }
-        return plano;
+        return this.sincronizarEstruturasPlano(plano);
     }
 };

@@ -57,7 +57,7 @@ function renderizarRacePredictor() {
         <div class="expanded-data-box" style="text-align: center;">
             <span>${p.prova || '-'}</span>
             <strong class="predictor-value">${p.tempoEstimado || '-'}</strong>
-            <div class="predictor-pace">${app.state.modoEsteira ? 'Velocidade' : 'Pace'}: ${p.paceMedio || '-'}</div>
+            <div class="predictor-pace">${app.state.modoEsteira ? 'Velocidade' : 'Pace'}: ${app.state.modoEsteira ? `${p.velocidadeMediaKmh.toFixed(1)} km/h` : (p.paceMedio || '-')}</div>
         </div>
     `).join('');
 }
@@ -225,12 +225,11 @@ function _atualizarBotaoEsteira() {
 function _gerarHtmlProgressoSemanal(hojeISO) {
     const { start: weekStart, end: weekEnd } = obterLimitesDaSemana(hojeISO);
     let volPlanejadoSemana = 0;
-    const multVol = parseFloat(app.state.atleta?.multiplicadorVolume) || 1.0;
     
     if (Array.isArray(app.state.plano)) {
         app.state.plano.forEach(t => {
             if (t && t.dataISO >= weekStart && t.dataISO <= weekEnd) {
-                volPlanejadoSemana += (parseFloat(t.distanciaBase) || 0) * multVol;
+                volPlanejadoSemana += app.obterDistanciaTreino(t);
             }
         });
     }
@@ -330,19 +329,11 @@ function renderizarCardHoje(hojeISO, zonas) {
         uiHoje.setAttribute('data-intensity', intensityKey);
         
         const badgeValidation = ehTimeTrial ? `<div class="badge-timetrial">DIA DE VALIDAÇÃO</div>` : '';
-        const multVol = parseFloat(app.state.atleta.multiplicadorVolume) || 1.0;
-        const distCalculada = parseFloat(((parseFloat(treinoHoje.distanciaBase) || 0) * multVol).toFixed(1));
+        const distCalculada = app.obterDistanciaTreino(treinoHoje);
         const infoZona = zonas[tipo] || {};
         const eEsteira = !!app.state.modoEsteira;
 
-let tempoEstimadoMin = 45;
-        if (infoZona.segundosMedio) {
-            tempoEstimadoMin = Math.round((infoZona.segundosMedio * distCalculada) / 60);
-        } else if (app.state && app.state.atleta) {
-            const baseSeg = Math.max(60, parseFloat(app.state.atleta.paceBaseSegundos) || 330);
-            tempoEstimadoMin = Math.round((baseSeg * distCalculada) / 60);
-        }
-        if (isNaN(tempoEstimadoMin) || tempoEstimadoMin <= 0) tempoEstimadoMin = 30;
+        const tempoEstimadoMin = Math.max(1, Math.round(app.estimarTempoTreino(tipo, distCalculada)));
 
         const heroHtml = eEsteira 
             ? `<div class="hero-distance-huge">${tempoEstimadoMin}<span>min</span></div>`
@@ -360,17 +351,15 @@ let tempoEstimadoMin = 45;
                </div>`;
 
         let htmlEstrutura = '';
-        if (Array.isArray(treinoHoje.estrutura) && treinoHoje.estrutura.length > 0) {
+        const estruturaHoje = app.obterEstruturaTreino(treinoHoje);
+        if (estruturaHoje.length > 0) {
             const tituloEstrutura = eEsteira ? "Execução na Esteira (Tempo & Velocidade)" : "Execução Estruturada";
-            const blocosProcessados = treinoHoje.estrutura.map(bloco => {
+            const blocosProcessados = estruturaHoje.map(bloco => {
                 if (!eEsteira) return bloco;
-                return bloco.replace(/(\d+(\.\d+)?)\s*km/gi, (match, p1) => {
-                    const kmBloco = parseFloat(p1);
-                    if (distCalculada > 0 && !isNaN(kmBloco)) {
-                        const minBloco = Math.round((kmBloco / distCalculada) * tempoEstimadoMin);
-                        return `${kmBloco}km (~${minBloco} min)`;
-                    }
-                    return match;
+                return bloco.replace(/(\d+(?:[.,]\d+)?)\s*km\b/gi, (texto, valor) => {
+                    const km = Number(valor.replace(',', '.'));
+                    const minutos = Math.round(app.estimarTempoTreino(tipo, km));
+                    return `${texto} (~${minutos} min)`;
                 });
             });
             htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">${tituloEstrutura}</div>` + 
@@ -573,13 +562,14 @@ function renderizarForecastCalendario(hojeISO, zonas) {
         const d = parts[2] || '01';
         const m = parts[1] || '01';
         
-        const distCalculada = parseFloat(((parseFloat(treino.distanciaBase) || 0) * multVol).toFixed(1));
+        const distCalculada = app.obterDistanciaTreino(treino);
         const paceAlvo = zonas[treino.tipo]?.pace || '-';
         const fcAlvo = zonas[treino.tipo]?.fc || '-';
 
         let htmlEstrutura = '';
-        if (Array.isArray(treino.estrutura) && treino.estrutura.length > 0) {
-            htmlEstrutura = `<div class="workout-structure-list">` + treino.estrutura.map(b => `<div class="workout-structure-item">${b}</div>`).join('') + `</div>`;
+        const estruturaTreino = app.obterEstruturaTreino(treino);
+        if (estruturaTreino.length > 0) {
+            htmlEstrutura = `<div class="workout-structure-list">` + estruturaTreino.map(b => `<div class="workout-structure-item">${b}</div>`).join('') + `</div>`;
         }
 
         let iconStatus = treino.concluido 
@@ -682,6 +672,7 @@ function carregarMaisSemanasMacrociclo() {
             htmlChunk += `<div class="week-group"><div class="week-header"><span>Semana ${semanaAtualNum}</span></div>`;
         }
 
+        const distCalculada = app.obterDistanciaTreino(treino);
         const parts = (treino.dataISO || '').split('-');
         const d = parts[2] || '01';
         const m = parts[1] || '01';
@@ -692,7 +683,7 @@ function carregarMaisSemanasMacrociclo() {
             const idRef = log ? log.idReferencia : '';
             clickAction = `onclick="fecharModal('modal-plano'); abrirEditarTreino('${idRef}', '${treino.dataISO}')"`;
         } else if (treino.dataISO <= getLocalISODate()) {
-            clickAction = `onclick="fecharModal('modal-plano'); abrirTreino(${treino.id}, '${treino.tipo}', ${treino.distanciaBase || 0})"`;
+            clickAction = `onclick="fecharModal('modal-plano'); abrirTreino(${treino.id}, '${treino.tipo}', ${distCalculada})"`;
         } else {
             clickAction = `onclick="fecharModal('modal-plano'); abrirModalReagendar(${treino.id}, '${treino.dataISO}')"`;
         }
@@ -702,7 +693,7 @@ function carregarMaisSemanasMacrociclo() {
                 <div class="day-card-header">
                     <div class="day-info">
                         <div class="day-date">${d}/${m}</div>
-                        <div class="day-title macro-day-title">${treino.tipo} <span class="macro-day-dist">${treino.distanciaBase || 0} km</span></div>
+                        <div class="day-title macro-day-title">${treino.tipo} <span class="macro-day-dist">${distCalculada} km</span></div>
                     </div>
                 </div>
             </div>`;

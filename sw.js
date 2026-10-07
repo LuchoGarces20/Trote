@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trote-pwa-v6'; // Versão atualizada para forçar a renovação do cache
+const CACHE_NAME = 'trote-pwa-v7'; // Versão atualizada para forçar a renovação do cache
 
 // Recursos essenciais para cache offline (substituído ./app.js pelos novos scripts modularizados)
 const STATIC_ASSETS = [

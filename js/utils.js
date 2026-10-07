@@ -4,6 +4,53 @@
 
 const STORAGE_KEY = 'trote_app_v4';
 
+// Zero é um valor válido; somente ausência/valor não finito usa o padrão.
+function numeroFinito(valor, padrao = 0) {
+    const numero = parseFloat(valor);
+    return Number.isFinite(numero) ? numero : padrao;
+}
+
+function decomporTempoSegundos(segundos) {
+    const total = Math.max(0, Math.round(numeroFinito(segundos, 0)));
+    return { total, horas: Math.floor(total / 3600), minutos: Math.floor(total / 60) % 60, segundos: total % 60 };
+}
+
+function formatarPaceSegundos(segundos, preencherMinutos = true) {
+    const total = Math.max(1, Math.round(numeroFinito(segundos, 300)));
+    const minutos = String(Math.floor(total / 60));
+    return `${preencherMinutos ? minutos.padStart(2, '0') : minutos}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function formatarDuracaoMinutos(minutos) {
+    const tempo = decomporTempoSegundos(numeroFinito(minutos, 0) * 60);
+    const segundos = tempo.segundos > 0 ? `${String(tempo.segundos).padStart(2, '0')}s` : '';
+    return tempo.horas > 0
+        ? `${tempo.horas}h${String(tempo.minutos).padStart(2, '0')}m${segundos}`
+        : `${tempo.minutos}m${segundos}`;
+}
+
+// Validação estrita sem deixar o Date normalizar 31/02 para março.
+function ehDataISOValida(dataISO) {
+    if (typeof dataISO !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dataISO)) return false;
+    const [ano, mes, dia] = dataISO.split('-').map(Number);
+    if (ano < 1) return false;
+    const data = new Date(0);
+    data.setFullYear(ano, mes - 1, dia);
+    data.setHours(0, 0, 0, 0);
+    return data.getFullYear() === ano && data.getMonth() === mes - 1 && data.getDate() === dia;
+}
+
+// Mesma regra no onboarding, na nova meta e no gerador: 14 a 365 dias civis.
+function validarDataMeta(dataAlvoISO, dataInicioISO = getLocalISODate()) {
+    if (!ehDataISOValida(dataAlvoISO) || !ehDataISOValida(dataInicioISO)) {
+        return { ok: false, mensagem: 'Informe uma data de prova válida.' };
+    }
+    const dias = diferencaDiasISO(dataInicioISO, dataAlvoISO);
+    if (dias < 14) return { ok: false, mensagem: 'Escolha uma prova com pelo menos 14 dias de preparação.' };
+    if (dias > 365) return { ok: false, mensagem: 'O macrociclo máximo suportado é de 365 dias.' };
+    return { ok: true, dias };
+}
+
 const themeToggleBtn = document.getElementById('theme-toggle');
 const body = document.body;
 

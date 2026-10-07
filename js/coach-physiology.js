@@ -19,11 +19,7 @@ const CoachPhysiology = {
                 const velMax = (3600 / segMin).toFixed(1);
                 return `${velMin} - ${velMax} km/h`;
             }
-            const formatarSeg = (segundos) => {
-                const min = Math.floor(segundos / 60);
-                const seg = Math.round(segundos % 60);
-                return `${min}:${seg < 10 ? '0' : ''}${seg}`;
-            };
+            const formatarSeg = (segundos) => formatarPaceSegundos(segundos, false);
             return `${formatarSeg(segMin)} - ${formatarSeg(segMax)} /km`;
         };
 
@@ -70,6 +66,7 @@ const CoachPhysiology = {
     recalcularHistoricoCTL(historicoCTL, treinosRealizados, planoFuturo, atleta, ctlInicial = 20, atlInicial = 20, dataInicioISO = null) {
         if (!Array.isArray(historicoCTL) || historicoCTL.length === 0) return [];
         
+        const resultado = historicoCTL.map(dia => ({ ...dia }));
         const hojeISO = getLocalISODate();
         const treinosMap = new Map();
         if (Array.isArray(treinosRealizados)) {
@@ -87,9 +84,10 @@ const CoachPhysiology = {
                 if (p && p.dataISO > hojeISO && p.tipo !== "Descanso" && p.distanciaBase > 0) {
                     // Estima o TSS do treino planejado usando RPE médio 6 e o pace base
                     const paceBase = atleta?.paceBaseSegundos || 330;
-                    const tempoEst = (p.distanciaBase * paceBase) / 60;
+                    const multiplicador = Math.max(0.5, Math.min(2, numeroFinito(atleta?.multiplicadorVolume, 1)));
+                    const tempoEst = (Math.round(p.distanciaBase * multiplicador * 10) / 10 * paceBase) / 60;
                     const estTss = this.calcularTSS(tempoEst, 6, null, atleta);
-                    planoMap.set(p.dataISO, estTss);
+                    planoMap.set(p.dataISO, (planoMap.get(p.dataISO) || 0) + estTss);
                 }
             }
         }
@@ -103,8 +101,8 @@ const CoachPhysiology = {
             if (idx > 0) {
                 startIndex = idx;
                 const diaPrev = historicoCTL[idx - 1];
-                ctl = Math.max(0, parseFloat(diaPrev?.ctl) || ctlInicial);
-                atl = Math.max(0, parseFloat(diaPrev?.atl) || atlInicial);
+                ctl = Math.max(0, numeroFinito(diaPrev?.ctl, ctlInicial));
+                atl = Math.max(0, numeroFinito(diaPrev?.atl, atlInicial));
             }
         }
 
@@ -126,7 +124,7 @@ const CoachPhysiology = {
             atl = atl + (tss - atl) * kATL;
             const tsb = ctl - atl;
 
-            historicoCTL[i] = {
+            resultado[i] = {
                 ...dia,
                 ehFuturo: ehFuturo,
                 tss: Math.round(tss),
@@ -135,7 +133,7 @@ const CoachPhysiology = {
                 tsb: parseFloat(tsb.toFixed(1)) || 0
             };
         }
-        return historicoCTL;
+        return resultado;
     },
 
     calcularMonotoniaEFoster(treinosRealizadosSemana) {
@@ -191,21 +189,17 @@ const CoachPhysiology = {
             const tempoSeg = tempoRefSeg * Math.pow(distSegura / distRef, 1.06);
             const paceMedioSeg = tempoSeg / distSegura;
             
-            const hor = Math.floor(tempoSeg / 3600);
-            const min = Math.floor((tempoSeg % 3600) / 60);
-            const seg = Math.round(tempoSeg % 60);
-            
-            const paceMin = Math.floor(paceMedioSeg / 60);
-            const paceSeg = Math.round(paceMedioSeg % 60);
-            
-            const tempoFormatado = hor > 0 
-                ? `${hor}h${min < 10 ? '0' : ''}${min}m` 
-                : `${min}m${seg < 10 ? '0' : ''}${seg}s`;
-                
+            const tempo = decomporTempoSegundos(tempoSeg);
+            const tempoFormatado = tempo.horas > 0
+                ? `${tempo.horas}h${String(tempo.minutos).padStart(2, '0')}m`
+                : `${tempo.minutos}m${String(tempo.segundos).padStart(2, '0')}s`;
+
             return {
                 prova: p.nome,
                 tempoEstimado: tempoFormatado,
-                paceMedio: `${paceMin}:${paceSeg < 10 ? '0' : ''}${paceSeg}/km`
+                paceMedio: `${formatarPaceSegundos(paceMedioSeg, false)}/km`,
+                paceMedioSegundos: paceMedioSeg,
+                velocidadeMediaKmh: 3600 / paceMedioSeg
             };
         });
     },

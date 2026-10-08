@@ -803,5 +803,8 @@ document.getElementById('form-dias-treino')?.addEventListener('submit', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     inicializarGestoDeslizarModais();
+    if (typeof solicitarArmazenamentoPersistente === 'function') {
+        solicitarArmazenamentoPersistente();
+    }
     if (typeof renderizarTelas === 'function') renderizarTelas();
 });

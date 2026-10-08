@@ -154,3 +154,22 @@ window.showToast = function(msg) {
     toast.classList.add('show');
     setTimeout(() => toast.classList.remove('show'), 4000);
 };
+
+// ==========================================
+// SOLICITAÇÃO DE ARMAZENAMENTO PERSISTENTE
+// ==========================================
+async function solicitarArmazenamentoPersistente() {
+    if (navigator.storage && navigator.storage.persist) {
+        try {
+            const jaEhPersistente = await navigator.storage.persisted();
+            if (!jaEhPersistente) {
+                const concedido = await navigator.storage.persist();
+                console.log(`[Trote Storage] Persistência concedida: ${concedido}`);
+            } else {
+                console.log("[Trote Storage] Armazenamento já é persistente.");
+            }
+        } catch (erro) {
+            console.warn("[Trote Storage] Erro ao verificar armazenamento persistente:", erro);
+        }
+    }
+}

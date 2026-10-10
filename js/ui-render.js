@@ -268,36 +268,61 @@ function renderizarCardHoje(hojeISO, zonas) {
     if (!uiHoje) return;
     uiHoje.classList.add('today-card');
     const progressHtml = _gerarHtmlProgressoSemanal(hojeISO);
-    
+         
     let treinoHoje = Array.isArray(app.state.plano)
         ? (app.state.plano.find(t => t && t.dataISO === hojeISO && t.tipo !== "Descanso") || app.state.plano.find(t => t && t.dataISO === hojeISO))
         : null;
-        
+             
     const dataFimISO = app.state.prova ? app.state.prova.dataStr : null;
     if (!treinoHoje && dataFimISO && hojeISO >= app.state.atleta.dataInicioISO && hojeISO <= dataFimISO) {
         treinoHoje = { dataISO: hojeISO, tipo: "Descanso", distanciaBase: 0, prescricao: "O ganho de performance ocorre no repouso.", estrutura: [], concluido: false };
     }
 
-    // Puxa a musculação logo no início para definirmos a hierarquia da tela
     const lembreteForca = app.obterTreinoForca(hojeISO);
+    const musculacaoConcluida = app.state.musculacaoRealizada && app.state.musculacaoRealizada.includes(hojeISO);
 
     if (!treinoHoje) {
         uiHoje.removeAttribute('data-intensity');
         uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Ciclo Concluído</h2><p class="today-desc">Jornada finalizada com sucesso!</p>`;
-    
+         
     } else if (treinoHoje.concluido) {
         uiHoje.removeAttribute('data-intensity');
         
-        // Bônus UX: Se já correu mas tem musculação, alerta no card de finalizado
-        const hintForca = lembreteForca ? `<div class="card-lembrete-forca" style="margin-top: 16px; width: 100%;"><strong>Falta a Força:</strong> Não se esqueça do seu treino de <span class="text-highlight-forca">${lembreteForca}</span> hoje.</div>` : '';
-        
-        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc" style="margin-bottom: 10px;">Sessão de corrida finalizada.</p>${hintForca}${progressHtml}`;
-        
+        const log = app.state.treinosRealizados.find(t => t && t.dataISO === hojeISO);
+        let relatorioText = "Sessão de corrida finalizada.";
+        if (log) {
+            const tempoFormatado = app._minutosParaTempoString(log.tempoMin || 0);
+            if (app.state.modoEsteira) {
+                // Cálculo da velocidade em km/h: Distância / Tempo(em horas)
+                const tempoHoras = (log.tempoMin || 1) / 60; // Evita divisão por zero
+                const velocidadeKmh = (log.dist / tempoHoras).toFixed(1);
+                
+                relatorioText = `Sessão finalizada: <strong>${tempoFormatado}</strong> a ${velocidadeKmh} km/h.`;
+            } else {
+                relatorioText = `Sessão finalizada: <strong>${log.dist} km</strong> em ${tempoFormatado}.`;
+            }
+        }
+                 
+        // UX: Botões de conclusão de força pós-corrida
+        let hintForca = '';
+        if (lembreteForca) {
+             if (musculacaoConcluida) {
+                 hintForca = `<div class="card-lembrete-forca" style="margin-top: 16px; width: 100%;"><strong>Força:</strong> <span class="text-highlight-forca">${lembreteForca}</span> <button class="btn-outline-small" style="border-color: var(--success); color: var(--success); margin-top: 8px; padding: 6px;" onclick="app.toggleMusculacao('${hojeISO}')">✓ Concluído</button></div>`;
+             } else {
+                 hintForca = `<div class="card-lembrete-forca" style="margin-top: 16px; width: 100%;"><strong>Falta a Força:</strong> Não se esqueça do seu treino de <span class="text-highlight-forca">${lembreteForca}</span> hoje.<button class="btn-outline-small" style="border-color: #8B5CF6; color: #8B5CF6; margin-top: 8px; padding: 6px;" onclick="app.toggleMusculacao('${hojeISO}')">Marcar como Concluído</button></div>`;
+             }
+        }
+                 
+        uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">${treinoHoje.tipo}</h2><div class="today-done"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></div><p class="today-desc" style="margin-bottom: 10px;">${relatorioText}</p>${hintForca}${progressHtml}`;
+             
     } else if (treinoHoje.tipo === "Descanso") {
         uiHoje.removeAttribute('data-intensity');
-        
+                 
         if (lembreteForca) {
-            // Nova Interface: Dia exclusivo de Musculação
+            const btnForca = musculacaoConcluida 
+                ? `<button class="btn-outline-small" style="border-color: var(--success); color: var(--success); margin-bottom: 24px;" onclick="app.toggleMusculacao('${hojeISO}')">✓ Musculação Concluída</button>`
+                : `<button class="btn-secondary" style="border-color: #8B5CF6; color: #8B5CF6; margin-bottom: 24px;" onclick="app.toggleMusculacao('${hojeISO}')">Marcar como Concluída</button>`;
+            
             uiHoje.innerHTML = `
                 <div class="phase-badge" style="background: rgba(139, 92, 246, 0.15); color: #8B5CF6; border-color: #8B5CF6;">Sem Corrida</div>
                 <div class="today-date">${formatarDataHoje()}</div>
@@ -309,36 +334,33 @@ function renderizarCardHoje(hojeISO, zonas) {
                         <line x1="6" y1="12" x2="18" y2="12"></line>
                     </svg>
                 </div>
-                <div class="card-lembrete-forca" style="margin-bottom: 24px; width: 100%;">
+                <div class="card-lembrete-forca" style="margin-bottom: 16px; width: 100%;">
                     <strong>Seu treino de hoje:</strong> <span class="text-highlight-forca">${lembreteForca}</span>
                 </div>
+                ${btnForca}
                 <p class="today-desc" style="margin-top: 0; margin-bottom: 30px;">Fortalecer a base previne lesões e otimiza sua corrida.</p>
                 ${progressHtml}
             `;
         } else {
-            // Dia de Descanso Puro Original
             uiHoje.innerHTML = `<div class="today-date">${formatarDataHoje()}</div><h2 class="today-type">Recovery</h2><div class="today-rest"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></div><p class="today-desc">O ganho de performance ocorre no repouso.</p>${progressHtml}`;
         }
-        
+             
     } else {
-        // Treino de corrida ativo (Mantido exatamente igual)
         const tipo = treinoHoje.tipo || "Rodagem";
         const ehTimeTrial = tipo.includes("Time Trial") || tipo.includes("Teste");
         const intensityKey = ehTimeTrial ? "timetrial" : (tipo.includes("Intervalado") || tipo.includes("Tiros") || tipo.includes("Subidas") ? "z5-tiros" : (tipo.includes("Tempo") || tipo.includes("Cruise") || tipo.includes("Fartlek") || tipo === "PROVA ALVO" ? "z3-z4" : "z1-z2"));
-        
+                 
         uiHoje.setAttribute('data-intensity', intensityKey);
-        
+                 
         const badgeValidation = ehTimeTrial ? `<div class="badge-timetrial">DIA DE VALIDAÇÃO</div>` : '';
         const distCalculada = app.obterDistanciaTreino(treinoHoje);
         const infoZona = zonas[tipo] || {};
         const eEsteira = !!app.state.modoEsteira;
-
         const tempoEstimadoMin = Math.max(1, Math.round(app.estimarTempoTreino(tipo, distCalculada)));
-
+        
         const heroHtml = eEsteira 
             ? `<div class="hero-distance-huge">${tempoEstimadoMin}<span>min</span></div>`
             : `<div class="hero-distance-huge">${distCalculada}<span>km</span></div>`;
-
         const rotuloRitmo = eEsteira ? 'Velocidade' : 'Pace';
         const metricsHtml = eEsteira
             ? `<div class="today-metrics">
@@ -349,7 +371,7 @@ function renderizarCardHoje(hojeISO, zonas) {
                 <div class="today-metrics-card primary-metric"><div class="metric-tag">Target</div><div class="metric-label">${rotuloRitmo} Alvo</div><strong class="metric-val">${infoZona.pace || '-'}</strong></div>
                 <div class="today-metrics-card secondary-metric"><div class="metric-label">Zona & FC Esperada</div><strong class="metric-val">${infoZona.fc || '-'}</strong></div>
                </div>`;
-
+        
         let htmlEstrutura = '';
         const estruturaHoje = app.obterEstruturaTreino(treinoHoje);
         if (estruturaHoje.length > 0) {
@@ -362,21 +384,26 @@ function renderizarCardHoje(hojeISO, zonas) {
                     return `${texto} (~${minutos} min)`;
                 });
             });
-            htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">${tituloEstrutura}</div>` + 
-                  blocosProcessados.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
+            htmlEstrutura = `<div class="workout-structure"><div class="workout-structure-title">${tituloEstrutura}</div>` +
+                   blocosProcessados.map(bloco => `<div class="workout-block">${bloco}</div>`).join('') + `</div>`;
         }
-
-        const hintForca = lembreteForca ? `<div class="card-lembrete-forca"><strong>Lembrete de Força:</strong> Hoje é dia de <span class="text-highlight-forca">${lembreteForca}</span>.</div>` : '';
         
+        // UX: Botões de força durante o planejamento normal
+        const hintForca = lembreteForca 
+            ? (musculacaoConcluida
+                ? `<div class="card-lembrete-forca"><strong>Lembrete de Força:</strong> Hoje é dia de <span class="text-highlight-forca">${lembreteForca}</span>. <button class="btn-outline-small" style="border-color: var(--success); color: var(--success); margin-top: 8px; padding: 6px;" onclick="app.toggleMusculacao('${hojeISO}')">✓ Concluído</button></div>`
+                : `<div class="card-lembrete-forca"><strong>Lembrete de Força:</strong> Hoje é dia de <span class="text-highlight-forca">${lembreteForca}</span>.<button class="btn-outline-small" style="border-color: #8B5CF6; color: #8B5CF6; margin-top: 8px; padding: 6px;" onclick="app.toggleMusculacao('${hojeISO}')">Marcar como Concluído</button></div>`)
+            : '';
+                 
         const tenisIdSugerido = app.obterTenisSugerido(tipo);
         let nomeTenis = "Escolha um tênis";
         if (tenisIdSugerido && Array.isArray(app.state.atleta.tenis)) {
             const tF = app.state.atleta.tenis.find(t => t && t.id === tenisIdSugerido);
             if (tF) nomeTenis = tF.nome;
         }
-        
+                 
         const hintTenis = Array.isArray(app.state.atleta.tenis) && app.state.atleta.tenis.length > 0 ? `<div class="hint-tenis">Recomendação: <span class="text-highlight-tenis">${nomeTenis}</span></div>` : '';
-
+        
         uiHoje.innerHTML = `
             ${badgeValidation}
             <div class="phase-badge">${treinoHoje.fasePlano || 'Ciclo de Treino'}</div>
@@ -385,11 +412,11 @@ function renderizarCardHoje(hojeISO, zonas) {
             ${heroHtml}
             ${metricsHtml}
             <div class="guia-sensacao-box"><strong>Guia de Sensação:</strong><br>${infoZona.guia || ''}</div>
-            
+                         
             ${htmlEstrutura}${hintForca}${hintTenis}
-            
+                         
             <p class="today-desc today-desc-small">"${treinoHoje.prescricao || ''}"</p>
-            
+                         
             <button class="btn-giant btn-quick-log" onclick="app.registrarComoPrescrito(${treinoHoje.id})">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 Concluir como Prescrito (1-Tap)

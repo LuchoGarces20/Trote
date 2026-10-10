@@ -163,10 +163,22 @@ window.fecharModal = function(idModal, skipHistoryBack = false) {
             card.style.transform = '';
             card.style.transition = '';
         }
-
         const screenToday = document.getElementById('screen-today');
         if (screenToday && screenToday.classList.contains('active-screen')) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            // Verifica se o treino do dia está concluído
+            let treinoHojeConcluido = false;
+            if (window.app && window.app.state && Array.isArray(window.app.state.plano)) {
+                const hojeISO = typeof getLocalISODate === 'function' ? getLocalISODate() : new Date().toISOString().split('T')[0];
+                const treino = window.app.state.plano.find(t => t && t.dataISO === hojeISO && t.tipo !== "Descanso");
+                if (treino && treino.concluido) {
+                    treinoHojeConcluido = true;
+                }
+            }
+            
+            // Só volta pro topo se o treino AINDA NÃO estiver concluído
+            if (!treinoHojeConcluido) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         }
     }, 300);
 
@@ -277,16 +289,25 @@ window.abrirTreino = function(id, tipo, distCalculada) {
     const selectTenis = document.getElementById('input-treino-tenis');
 
     if (elId) elId.value = id;
-    if (elEdit) elEdit.value = "false";
-    
-    const distNum = Math.max(0.01, parseFloat(distCalculada) || 0.01);
-    if (elDist) elDist.value = distNum;
+        if (elEdit) elEdit.value = "false";
+        
+        const distNum = Math.max(0.01, parseFloat(distCalculada) || 0.01);
+        const estimativaMin = app.estimarTempoTreino(tipo, distNum);
+        
+        const labelDist = document.querySelector('label[for="input-dist"]');
+        if (app && app.state && app.state.modoEsteira) {
+            if (labelDist) labelDist.innerText = "VELOCIDADE (KM/H)";
+            const velEstimada = distNum / (estimativaMin / 60);
+            if (elDist) elDist.value = isNaN(velEstimada) ? '' : velEstimada.toFixed(1);
+        } else {
+            if (labelDist) labelDist.innerText = "DISTÂNCIA (KM)";
+            if (elDist) elDist.value = distNum;
+        }
+        
+        if (elTempo) elTempo.value = app._minutosParaTempoString(estimativaMin);
+        
+        let rpeSugerido = 6;
 
-    const estimativaMin = app.estimarTempoTreino(tipo, distNum);
-
-    if (elTempo) elTempo.value = app._minutosParaTempoString(estimativaMin);
-
-    let rpeSugerido = 6;
     if (tipo.includes("Regenerativo")) rpeSugerido = 2;
     else if (tipo.includes("Rodagem") || tipo.includes("Leve")) rpeSugerido = 4;
     else if (tipo.includes("Maratona")) rpeSugerido = 6;
@@ -463,12 +484,25 @@ window.abrirEditarTreino = function(idRef, dataISO) {
     const selectTenis = document.getElementById('input-treino-tenis');
 
     if (elId) elId.value = idRef;
-    if (elEdit) elEdit.value = "true";
-    if (elDist) elDist.value = log.dist || 0;
-    if (elTempo) elTempo.value = app._minutosParaTempoString(log.tempoMin || 0);
-    if (elFc) elFc.value = log.fcMedia || '';
-    
-    selecionarSRPE(log.rpe || 6);
+        if (elEdit) elEdit.value = "true";
+        
+        const labelDist = document.querySelector('label[for="input-dist"]');
+        const logDist = parseFloat(log.dist) || 0;
+        const logTempoMin = parseFloat(log.tempoMin) || 0;
+        
+        if (app && app.state && app.state.modoEsteira) {
+            if (labelDist) labelDist.innerText = "VELOCIDADE (KM/H)";
+            const vel = (logTempoMin > 0) ? (logDist / (logTempoMin / 60)) : 0;
+            if (elDist) elDist.value = vel.toFixed(1);
+        } else {
+            if (labelDist) labelDist.innerText = "DISTÂNCIA (KM)";
+            if (elDist) elDist.value = logDist;
+        }
+        
+        if (elTempo) elTempo.value = app._minutosParaTempoString(logTempoMin);
+        if (elFc) elFc.value = log.fcMedia || '';
+        
+        selecionarSRPE(log.rpe || 6);
 
     if (selectTenis) {
         selectTenis.innerHTML = '';
@@ -588,12 +622,20 @@ window.finalizarOnboarding = function() {
 }
 
 document.getElementById('form-treino')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const idTreino = document.getElementById('treino-id')?.value;
-    const ehEdicao = document.getElementById('treino-edit-mode')?.value === "true";
-    const tempoStr = document.getElementById('input-tempo')?.value;
-    const tempoMin = app._tempoStringParaMinutos(tempoStr);
-    const dist = Math.max(0.01, parseFloat(document.getElementById('input-dist')?.value) || 0.01);
+        e.preventDefault();
+        const idTreino = document.getElementById('treino-id')?.value;
+        const ehEdicao = document.getElementById('treino-edit-mode')?.value === "true";
+        const tempoStr = document.getElementById('input-tempo')?.value;
+        const tempoMin = app._tempoStringParaMinutos(tempoStr);
+        
+        let valorInput = Math.max(0.01, parseFloat(document.getElementById('input-dist')?.value) || 0.01);
+        let dist = valorInput;
+        
+        if (app && app.state && app.state.modoEsteira) {
+            // No modo esteira, o input é Velocidade (km/h). A Distância = Velocidade * (Tempo em horas)
+            dist = parseFloat((valorInput * (tempoMin / 60)).toFixed(2));
+        }
+
     const fc = document.getElementById('input-fc')?.value;
     const rpe = parseInt(document.getElementById('input-rpe')?.value, 10) || 6;
     const tenisId = document.getElementById('input-treino-tenis')?.value;

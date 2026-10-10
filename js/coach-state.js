@@ -1,5 +1,5 @@
 // ==========================================
-// GERENCIADOR DE ESTADO & CONTROLADOR (STATE - BLINDAGEM TOTAL)
+// GERENCIADOR DE ESTADO & CONTROLADOR
 // ==========================================
 
 class RunningCoach {
@@ -94,6 +94,7 @@ class RunningCoach {
 
         if (!Array.isArray(this.state.plano)) this.state.plano = [];
         if (!Array.isArray(this.state.treinosRealizados)) this.state.treinosRealizados = [];
+        if (!Array.isArray(this.state.musculacaoRealizada)) this.state.musculacaoRealizada = []; // NOVA LINHA AQUI
         if (!Array.isArray(this.state.logs)) this.state.logs = [];
         CoachPlanner.sincronizarEstruturasPlano(this.state.plano);
 
@@ -498,6 +499,25 @@ class RunningCoach {
             this.state.atleta.atl = hoje.atl;
             this.state.atleta.tsb = hoje.tsb;
         }
+    }
+
+    toggleMusculacao(dataISO) {
+        if (!this.state) return;
+        if (!Array.isArray(this.state.musculacaoRealizada)) {
+            this.state.musculacaoRealizada = [];
+        }
+
+        const index = this.state.musculacaoRealizada.indexOf(dataISO);
+        if (index > -1) {
+            this.state.musculacaoRealizada.splice(index, 1); // Desmarca
+        } else {
+            this.state.musculacaoRealizada.push(dataISO); // Marca
+            this.state.logs.unshift({ data: formatarDataHoje(), msg: `Treino de musculação concluído!` });
+            if (typeof showToast === 'function') showToast("💪 Musculação registrada!");
+        }
+
+        this.saveState();
+        if (typeof atualizarTelasGlobais === 'function') atualizarTelasGlobais();
     }
 
     obterDistanciaTreino(treino) {
